@@ -1537,6 +1537,16 @@ class Wallet_2of2(BIP32_Wallet, Mnemonic):
     root_derivation = "m/44'/0'"
     wallet_type = '2of2'
 
+    def __init__(self, storage):
+        try:
+            chain_code = storage.config.get_active_chain_code()
+        except:
+            chain_code = chainparams.get_active_chain().code
+
+        chain_index = chainparams.get_chain_index(chain_code)
+        self.root_derivation = "m/44'/{}'".format(chain_index)
+        BIP32_Wallet.__init__(self, storage)
+
     def can_import(self):
         return False
 
@@ -1552,6 +1562,8 @@ class Wallet_2of2(BIP32_Wallet, Mnemonic):
         return {'x1':xpub1, 'x2':xpub2}
 
     def get_action(self):
+        if not self.get_master_public_key():
+            return 'add_chain'
         xpub1 = self.master_public_keys.get("x1/")
         xpub2 = self.master_public_keys.get("x2/")
         if xpub1 is None:
