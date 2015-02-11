@@ -235,8 +235,8 @@ class Abstract_Wallet(object):
             self.update_tx_outputs(tx_hash)
 
         # save wallet type the first time
-        if self.storage.get('wallet_type') is None:
-            self.storage.put('wallet_type', self.wallet_type, True)
+        if self.storage.get_above_chain('wallet_type') is None:
+            self.storage.put_above_chain('wallet_type', self.wallet_type, True)
 
     def set_chain(self, chaincode):
         result = self.storage.config.set_active_chain_code(chaincode)
@@ -1546,6 +1546,8 @@ class Wallet_2of2(BIP32_Wallet, Mnemonic):
         chain_index = chainparams.get_chain_index(chain_code)
         self.root_derivation = "m/44'/{}'".format(chain_index)
         BIP32_Wallet.__init__(self, storage)
+        self.master_public_keys = storage.get_above_chain('master_public_keys', {})
+        self.master_private_keys = storage.get_above_chain('master_private_keys', {})
 
     def can_import(self):
         return False
@@ -1561,8 +1563,16 @@ class Wallet_2of2(BIP32_Wallet, Mnemonic):
         xpub2 = self.master_public_keys.get("x2/")
         return {'x1':xpub1, 'x2':xpub2}
 
+    def add_master_public_key(self, name, xpub):
+        self.master_public_keys[name] = xpub
+        self.storage.put_above_chain('master_public_keys', self.master_public_keys, True)
+
+    def add_master_private_key(self, name, xpriv, password):
+        self.master_private_keys[name] = pw_encode(xpriv, password)
+        self.storage.put_above_chain('master_private_keys', self.master_private_keys, True)
+
     def get_action(self):
-        if not self.get_master_public_key():
+        if not self.master_public_keys:
             return 'add_chain'
         xpub1 = self.master_public_keys.get("x1/")
         xpub2 = self.master_public_keys.get("x2/")
@@ -1706,7 +1716,7 @@ class Wallet(object):
             sys.exit(1)
 
         run_hook('add_wallet_types', wallet_types)
-        wallet_type = storage.get('wallet_type')
+        wallet_type = storage.get_above_chain('wallet_type')
         if wallet_type:
             for cat, t, name, c in wallet_types:
                 if t == wallet_type:
