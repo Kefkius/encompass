@@ -1,6 +1,7 @@
 from PyQt4.QtGui import *
 from chainkey.plugins import BasePlugin, hook
 from chainkey.i18n import _
+from chainkey import chainparams
 
 
 import datetime
@@ -30,8 +31,6 @@ class Plugin(BasePlugin):
         return '%s\n%s' % (_("Ability to plot transaction history in graphical mode."), _("Warning: Requires matplotlib library."))
 
     def is_available(self):
-        # Disabled until compatibility is ensured
-        return False
         if flag_matlib:
             return True
         else:
@@ -82,7 +81,7 @@ class Plugin(BasePlugin):
                     try:
                         datenums.append(md.date2num(datetime.datetime.fromtimestamp(timestamp)))
                         balance_string = format_satoshis(balance, False)
-                        balance_Val.append(float((format_satoshis(balance,False)))*1000.0)
+                        balance_Val.append(float((format_satoshis(balance,False))))
                     except [RuntimeError, TypeError, NameError] as reason:
                         unknown_trans=unknown_trans+1
                         pass
@@ -93,7 +92,7 @@ class Plugin(BasePlugin):
 
             if value is not None:
                 value_string = format_satoshis(value, True)
-                value_val.append(float(value_string)*1000.0)
+                value_val.append(float(value_string))
             else:
                 value_string = '--'
 
@@ -137,7 +136,8 @@ class Plugin(BasePlugin):
         ax.add_artist(anchored_box)
 
 
-        plt.ylabel('mBTC')
+        coin_code = chainparams.get_active_chain().code
+        plt.ylabel(coin_code)
         plt.xlabel('Dates')
         xfmt = md.DateFormatter('%Y-%m-%d')
         ax.xaxis.set_major_formatter(xfmt)
