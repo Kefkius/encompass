@@ -234,6 +234,7 @@ class ElectrumWindow(QMainWindow):
 
         self.clear_receive_tab()
         self.update_receive_tab()
+        self.update_chain_security_widget()
         run_hook('load_wallet', wallet)
 
 
@@ -1715,6 +1716,48 @@ class ElectrumWindow(QMainWindow):
         self.update_address_tab()
         self.update_receive_tab()
 
+    def create_chain_security_widget(self):
+        chain_sec_widget = QLabel("")
+        chain_security_dict = chainkey.chainparams.get_chain_security(chainkey.chainparams.get_active_chain().code)
+        chain_security = chain_security_max = len(chain_security_dict)
+        for k, v in chain_security_dict.items():
+            if v == False:
+                chain_security = chain_security - 1
+        chain_sec_widget.setText(_("Chain Security: {} / {}".format(chain_security, chain_security_max)))
+        return chain_sec_widget
+
+    def update_chain_security_widget(self):
+        chain_security_dict = chainkey.chainparams.get_chain_security(chainkey.chainparams.get_active_chain().code)
+        chain_security = chain_security_max = len(chain_security_dict)
+        for k, v in chain_security_dict.items():
+            if v == False:
+                chain_security = chain_security - 1
+        self.chain_security_widget.setText(_("Chain Security: {} / {}".format(chain_security, chain_security_max)))
+
+    def chain_security_dialog(self, event):
+        d = QDialog(self)
+        d.setWindowTitle(_("Chain Security"))
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(QLabel(_("Chain security measures how confident you can be that the transactions\nyour wallet displays are actually present in the blockchain.\nHere are the criteria that the active currency satisfies:\n\n")))
+
+        chain_sec_dict = chainkey.chainparams.get_chain_security(chainkey.chainparams.get_active_chain().code)
+        chain_sec_info = {
+            'has_pow': 'This wallet verifies Proof-of-Work',
+            'one_server': 'This wallet has more than one server to get data from',
+        }
+        for k, v in chain_sec_dict.items():
+#            hbox = QHBoxLayout
+            is_true = v
+            criterion = chain_sec_info[k]
+            checkbox = QCheckBox(criterion)
+            checkbox.setChecked(is_true)
+            checkbox.setEnabled(False)
+            vbox.addWidget(checkbox)
+        d.setLayout(vbox)
+        if not d.exec_(): return
+
+
     def create_status_bar(self):
 
         sb = QStatusBar()
@@ -1726,6 +1769,10 @@ class ElectrumWindow(QMainWindow):
 
         from version_getter import UpdateLabel
         self.updatelabel = UpdateLabel(self.config, sb)
+
+        self.chain_security_widget = self.create_chain_security_widget()
+        self.chain_security_widget.mousePressEvent = self.chain_security_dialog
+        sb.addWidget(self.chain_security_widget)
 
         self.account_selector = QComboBox()
         self.account_selector.setSizeAdjustPolicy(QComboBox.AdjustToContents)

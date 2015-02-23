@@ -77,3 +77,17 @@ def get_chain_instance(code):
     classmodule = importlib.import_module(''.join(['chainkey.chains.', module_name]))
     classInst = getattr(classmodule, params.class_name)
     return classInst()
+
+def get_chain_security(code):
+    '''Evaluate the relative security of a chain's implementation'''
+    chain_instance = get_chain_instance(code)
+    if chain_instance is None:
+        return None
+    # Coin has proof of work verification
+    is_pow = chain_instance.PoW
+    # Coin has more than 1 server
+    one_server = len(chain_instance.DEFAULT_SERVERS) > 1
+    return {
+        'has_pow': is_pow,
+        'one_server': one_server
+    }
