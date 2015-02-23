@@ -23,6 +23,9 @@ def Hash(x):
 
 class CryptoCur(object):
     '''Abstract class containing cryptocurrency-specific code'''
+
+    # Whether this chain has Proof-of-Work verification
+    PoW = False
     ### Chain parameters ###
 
     # index used in child key derivation
