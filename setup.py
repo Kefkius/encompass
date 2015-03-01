@@ -71,10 +71,12 @@ setup(
         'SocksiPy-branch',
         'tlslite',
         'ltc_scrypt',
-        'darkcoin_hash'
+        'darkcoin_hash',
+        'groestl_hashs'
     ],
     dependency_links=[
-        "git+https://github.com/guruvan/darkcoin_hash#egg=darkcoin_hash"
+        "git+https://github.com/guruvan/darkcoin_hash#egg=darkcoin_hash",
+        "git+https://bitbucket.org/cryptopools/groestl_hash_python#egg=groestl_hashs"
     ],
     package_dir={
         'chainkey': 'lib',
@@ -118,6 +120,7 @@ setup(
         'chainkey.chains.litecoin',
         'chainkey.chains.viacoin',
         'chainkey.chains.darkcoin',        
+        'chainkey.chains.groestlcoin',
         'chainkey_gui.gtk',
         'chainkey_gui.qt.__init__',
         'chainkey_gui.qt.amountedit',
