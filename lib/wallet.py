@@ -1612,7 +1612,9 @@ class Wallet_2of2(Multisig_Wallet):
     def create_main_account(self, password):
         xpub1 = self.master_public_keys.get("x1/")
         xpub2 = self.master_public_keys.get("x2/")
-        account = BIP32_Account_2of2({'xpub':xpub1, 'xpub2':xpub2})
+        acc_xpub1 = bip32_public_derivation(xpub1, "", "/{}".format(self.active_chain.chain_index))
+        acc_xpub2 = bip32_public_derivation(xpub2, "", "/{}".format(self.active_chain.chain_index))
+        account = BIP32_Account_2of2({'xpub':acc_xpub1, 'xpub2':acc_xpub2})
         self.add_account('0', account)
 
     def get_master_public_keys(self):
