@@ -5,7 +5,7 @@ import darkcoin_hash as darkhash
 
 HashX11 = lambda x: darkhash.getPoWHash(x)
 
-class Dash(CryptoCur):
+class Darkcoin(CryptoCur):
     PoW = False
     chain_index = 5
     coin_name = 'Dash'
@@ -198,4 +198,4 @@ class Dash(CryptoCur):
         new_bits = c + MM * i
         return new_bits, new_target
 
-Currency = Dash
+Currency = Darkcoin

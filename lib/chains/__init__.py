@@ -4,5 +4,5 @@ import ltc_scrypt
 import scrypt
 import litecoin
 import viacoin
-import dash
+import darkcoin
 #__all__ = ['cryptocur, bitcoin, mazacoin']
