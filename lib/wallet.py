@@ -1556,13 +1556,23 @@ class NewWallet(BIP32_HD_Wallet, Mnemonic):
         if not self.accounts:
             return 'create_accounts'
 
+# Multisig wallets use a different derivation path
+# Instead of m/44'/coin'/... we use m/44'/0'/coin/...
+# Keys are derived in this manner:
+# Cosigners share public keys. For a given chain, the public key used
+# in the main account is the chain_index-th non-hardened child of
+# the master public key.
+#
+# Example
+# The public key that we share with our cosigner is m/44'/0'
+# To generate addresses for Bitcoin,  we use m/44'/0'/0/for_change/index  as the key in the script hash.
+# To generate addresses for Mazacoin, we use m/44'/0'/13/for_change/index as the key in the script hash.
 class Multisig_Wallet(BIP32_Wallet, Mnemonic):
     root_name = "x1/"
     root_derivation = "m/44'/0'/0'"
 
     def __init__(self, storage):
         BIP32_Wallet.__init__(self, storage)
-        self.root_derivation = "m/44'/0'/0'"
         try:
             chain_code = storage.config.get_active_chain_code()
         # constructor was passed a dict instead of a config object
@@ -1570,6 +1580,9 @@ class Multisig_Wallet(BIP32_Wallet, Mnemonic):
             chain_code = chainparams.get_active_chain().code
         if chain_code is None:
             chain_code = chainparams.get_active_chain().code
+
+        chain_index = chainparams.get_chain_index(chain_code)
+        self.root_derivation = "m/44'/0'/{}".format(chain_index)
 
         self.master_public_keys  = storage.get_above_chain('master_public_keys', {})
         self.master_private_keys = storage.get_above_chain('master_private_keys', {})
