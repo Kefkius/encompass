@@ -1569,7 +1569,7 @@ class NewWallet(BIP32_HD_Wallet, Mnemonic):
 # To generate addresses for Mazacoin, we use m/44'/0'/13/for_change/index as the key in the script hash.
 class Multisig_Wallet(BIP32_Wallet, Mnemonic):
     root_name = "x1/"
-    root_derivation = "m/44'/0'/0'"
+    root_derivation = "m/44'/0'"
 
     def __init__(self, storage):
         BIP32_Wallet.__init__(self, storage)
@@ -1582,7 +1582,7 @@ class Multisig_Wallet(BIP32_Wallet, Mnemonic):
             chain_code = chainparams.get_active_chain().code
 
         chain_index = chainparams.get_chain_index(chain_code)
-        self.root_derivation = "m/44'/0'/{}".format(chain_index)
+        self.root_derivation = "m/44'/0'".format(chain_index)
 
         self.master_public_keys  = storage.get_above_chain('master_public_keys', {})
         self.master_private_keys = storage.get_above_chain('master_private_keys', {})
