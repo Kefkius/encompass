@@ -372,8 +372,8 @@ class BIP32_Account_2of2(BIP32_Account):
         BIP32_Account.__init__(self, v)
         self.xpub2 = v['xpub2']
         # chain-specific derivation
-        self.xpub = bip32_public_derivation(self.xpub, "", "/{}".format(self.active_chain.chain_index))
-        self.xpub2 = bip32_public_derivation(self.xpub2, "", "/{}".format(self.active_chain.chain_index))
+#        self.xpub = bip32_public_derivation(self.xpub, "", "/{}".format(self.active_chain.chain_index))
+#        self.xpub2 = bip32_public_derivation(self.xpub2, "", "/{}".format(self.active_chain.chain_index))
 
     def dump(self):
         d = BIP32_Account.dump(self)
@@ -411,7 +411,7 @@ class BIP32_Account_2of3(BIP32_Account_2of2):
         BIP32_Account_2of2.__init__(self, v)
         self.xpub3 = v['xpub3']
         # chain-specific derivation
-        self.xpub3 = bip32_public_derivation(self.xpub3, "", "/{}".format(self.active_chain.chain_index))
+#        self.xpub3 = bip32_public_derivation(self.xpub3, "", "/{}".format(self.active_chain.chain_index))
 
     def dump(self):
         d = BIP32_Account_2of2.dump(self)
