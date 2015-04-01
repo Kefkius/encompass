@@ -145,10 +145,9 @@ class Plugin(BasePlugin):
         if passphrase is None:
             QMessageBox.critical(None, _('Error'), _("Password request canceled"), _('OK'))
             return
-        password = wizard.password_dialog()
-        wallet.add_seed(seed, password)
-        wallet.add_cosigner_seed(seed, 'x/', password, passphrase)
-        wallet.create_main_account(password)
+        wallet.add_seed(seed, passphrase)
+        wallet.add_cosigner_seed(seed, 'x/', passphrase)
+        wallet.create_main_account(passphrase)
         # disable trezor plugin
         self.set_enabled(False)
         return wallet
