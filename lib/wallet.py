@@ -1598,6 +1598,47 @@ class Multisig_Wallet(BIP32_Wallet, Mnemonic):
         self.master_private_keys[name] = pw_encode(xpriv, password)
         self.storage.put_above_chain('master_private_keys', self.master_private_keys, True)
 
+    def get_private_key_from_xpubkey(self, x_pubkey, password):
+        if x_pubkey[0:2] in ['02','03','04']:
+            addr = bitcoin.public_key_to_bc_address(x_pubkey.decode('hex'), self.active_chain.p2pkh_version)
+            if self.is_mine(addr):
+                return self.get_private_key(addr, password)[0]
+        elif x_pubkey[0:2] == 'ff':
+            xpub, sequence = BIP32_Account.parse_xpubkey(x_pubkey)
+            for k, account in self.accounts.items():
+                if xpub == account.get_master_pubkeys()[0]:
+                    pk = account.get_private_key(sequence, self, password)
+                    return pk[0]
+        elif x_pubkey[0:2] == 'fe':
+            xpub, sequence = OldAccount.parse_xpubkey(x_pubkey)
+            for k, account in self.accounts.items():
+                if xpub in account.get_master_pubkeys():
+                    pk = account.get_private_key(sequence, self, password)
+                    return pk[0]
+        elif x_pubkey[0:2] == 'fd':
+            addrtype = ord(x_pubkey[2:4].decode('hex'))
+            addr = hash_160_to_bc_address(x_pubkey[4:].decode('hex'), addrtype)
+            if self.is_mine(addr):
+                return self.get_private_key(addr, password)[0]
+        else:
+            raise BaseException("z")
+
+    def sign_transaction(self, tx, password):
+        if self.is_watching_only():
+            return
+        # check that the password is correct. This will raise if it's not.
+        self.check_password(password)
+        keypairs = {}
+        x_pubkeys = tx.inputs_to_sign()
+        for x in x_pubkeys:
+            sec = self.get_private_key_from_xpubkey(x, password)
+            print "sec", sec
+            if sec:
+                keypairs[ x ] = sec
+        if keypairs:
+            tx.sign(keypairs)
+        run_hook('sign_transaction', tx, password)
+
 class Wallet_2of2(Multisig_Wallet):
     # Wallet with multisig addresses.
     # Cannot create accounts
