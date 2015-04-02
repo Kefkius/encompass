@@ -1598,6 +1598,26 @@ class Multisig_Wallet(BIP32_Wallet, Mnemonic):
         self.master_private_keys[name] = pw_encode(xpriv, password)
         self.storage.put_above_chain('master_private_keys', self.master_private_keys, True)
 
+    def can_sign_xpubkey(self, x_pubkey):
+        if x_pubkey[0:2] in ['02','03','04']:
+            addr = bitcoin.public_key_to_bc_address(x_pubkey.decode('hex'), self.active_chain.p2pkh_version)
+            return self.is_mine(addr)
+        elif x_pubkey[0:2] == 'ff':
+            xpub, sequence = BIP32_Account.parse_xpubkey(x_pubkey)
+            for k, account in self.accounts.items():
+                if xpub == account.get_master_pubkeys()[0]:
+                    return True
+            return False
+        elif x_pubkey[0:2] == 'fe':
+            xpub, sequence = OldAccount.parse_xpubkey(x_pubkey)
+            return xpub == self.get_master_public_key()
+        elif x_pubkey[0:2] == 'fd':
+            addrtype = ord(x_pubkey[2:4].decode('hex'))
+            addr = hash_160_to_bc_address(x_pubkey[4:].decode('hex'), addrtype)
+            return self.is_mine(addr)
+        else:
+            raise BaseException("z")
+
     def get_private_key_from_xpubkey(self, x_pubkey, password):
         if x_pubkey[0:2] in ['02','03','04']:
             addr = bitcoin.public_key_to_bc_address(x_pubkey.decode('hex'), self.active_chain.p2pkh_version)
