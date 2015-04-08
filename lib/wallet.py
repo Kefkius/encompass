@@ -1757,6 +1757,8 @@ class Electrum_Wallet_2of2(Multisig_Electrum_Wallet):
             return 'add_chain'
         if xpub2 is None:
             return 'add_cosigner'
+        if not self.accounts:
+            return 'create_accounts'
 
     def get_master_public_keys(self):
         xpub1 = self.master_public_keys.get("x1/")
