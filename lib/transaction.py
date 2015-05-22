@@ -599,25 +599,27 @@ class Transaction:
 
         assert num <= n and n in [2,3] , 'Only "2 of 2", and "2 of 3" transactions are supported'
 
+        s = []
+
         if num==2:
-            s = '52'
+            s.append('52')
         elif num == 3:
-            s = '53'
+            s.append('53')
         else:
             raise
 
         for k in public_keys:
-            s += op_push(len(k)/2)
-            s += k
+            s.append(op_push(len(k)/2))
+            s.append(k)
         if n==2:
-            s += '52'
+            s.append('52')
         elif n==3:
-            s += '53'
+            s.append('53')
         else:
             raise
-        s += 'ae'
+        s.append('ae')
 
-        return s
+        return ''.join(s)
 
 
     @classmethod
@@ -631,17 +633,18 @@ class Transaction:
         else:
             assert type == 'address'
         addrtype, hash_160 = bc_address_to_hash_160(addr)
+        script = []
         if addrtype == self.active_chain.p2pkh_version:
-            script = '76a9'                                      # op_dup, op_hash_160
-            script += push_script(hash_160.encode('hex'))
-            script += '88ac'                                     # op_equalverify, op_checksig
+            script.append('76a9')                                   # op_dup, op_hash_160
+            script.append(push_script(hash_160.encode('hex')))
+            script.append('88ac')                                   # op_equalverify, op_checksig
         elif addrtype == self.active_chain.p2sh_version:
-            script = 'a9'                                        # op_hash_160
-            script += push_script(hash_160.encode('hex'))
-            script += '87'                                       # op_equal
+            script.append('a9')                                     # op_hash_160
+            script.append(push_script(hash_160.encode('hex')))
+            script.append('87')                                     # op_equal
         else:
             raise
-        return script
+        return ''.join(script)
 
 
     def serialize(self, for_sig=None):
@@ -653,13 +656,16 @@ class Transaction:
         inputs = self.inputs
         outputs = self.outputs
 
-        s  = int_to_hex(1,4)                                         # version
-        s += var_int( len(inputs) )                                  # number of inputs
+        # list of strings that comprise the serialization
+        s = []
+
+        s.append(int_to_hex(1,4))                                         # version
+        s.append(var_int( len(inputs) ))                                  # number of inputs
         for i in range(len(inputs)):
             txin = inputs[i]
 
-            s += txin['prevout_hash'].decode('hex')[::-1].encode('hex')   # prev hash
-            s += int_to_hex(txin['prevout_n'],4)                          # prev index
+            s.append( txin['prevout_hash'].decode('hex')[::-1].encode('hex') )   # prev hash
+            s.append(int_to_hex(txin['prevout_n'],4))                            # prev index
 
             p2sh = txin.get('redeemScript') is not None
             num_sig = txin['num_sig']
@@ -705,21 +711,21 @@ class Transaction:
             else:
                 script = ''
 
-            s += var_int( len(script)/2 )                            # script length
-            s += script
-            s += "ffffffff"                                          # sequence
+            s.append(var_int( len(script)/2 ))                       # script length
+            s.append(script)
+            s.append("ffffffff")                                     # sequence
 
-        s += var_int( len(outputs) )                                 # number of outputs
+        s.append(var_int( len(outputs) ))                            # number of outputs
         for output in outputs:
             type, addr, amount = output
-            s += int_to_hex( amount, 8)                              # amount
+            s.append(int_to_hex( amount, 8))                         # amount
             script = self.pay_script(type, addr)
-            s += var_int( len(script)/2 )                           #  script length
-            s += script                                             #  script
-        s += int_to_hex(0,4)                                        #  lock time
+            s.append(var_int( len(script)/2 ))                       #  script length
+            s.append(script)                                         #  script
+        s.append(int_to_hex(0,4))                                    #  lock time
         if for_sig is not None and for_sig != -1:
-            s += int_to_hex(1, 4)                                   #  hash type
-        return s
+            s.append(int_to_hex(1, 4))                               #  hash type
+        return ''.join(s)
 
     def tx_for_sig(self,i):
         return self.serialize(for_sig = i)
