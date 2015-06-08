@@ -124,7 +124,7 @@ class Digibyte(CryptoCur):
             version = header.get('version')
             if version == 1:
                 _hash = self.pow_hash_scrypt_header(header)
-            if version == 2:
+            elif version == 2:
                 _hash = self.pow_hash_sha_header(header)
             elif version == 514:
                 _hash = self.pow_hash_scrypt_header(header)
@@ -135,7 +135,7 @@ class Digibyte(CryptoCur):
             elif version == 2050:
                 _hash = self.pow_hash_qubit_header(header)
             else:
-                print( "error unknown block version")
+                print( "error unknown block version {}".format(version))
             assert previous_hash == header.get('prev_block_hash')
             assert bits == header.get('bits')
             assert int('0x'+_hash,16) < target
