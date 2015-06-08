@@ -1,0 +1,234 @@
+'''Chain-specific Digibyte code'''
+from cryptocur import CryptoCur, hash_encode, hash_decode, rev_hex, int_to_hex, sha256, Hash, bits_to_target, target_to_bits
+import os
+import hashlib
+import sqlite3
+
+
+class Digibyte(CryptoCur):
+    PoW = True
+    chain_index = 20
+    coin_name = 'Digibyte'
+    code = 'DGB'
+    p2pkh_version = 30
+    p2sh_version = 5
+    wif_version = 158
+    ext_pub_version = '0488b21e'
+    ext_priv_version = '0488ade4'
+
+    DUST_THRESHOLD = 0
+    MIN_RELAY_TX_FEE = 100000
+    RECOMMENDED_FEE = 100000
+    COINBASE_MATURITY = 100
+
+    block_explorers = {
+        'DigiExplorer': 'https://digiexplorer.info/tx/'
+    }
+
+    base_units = {
+        'DGB': 8
+    }
+
+    chunk_size = 2016
+
+    DEFAULT_PORTS = {'t':'50001', 's':'50002', 'h':'8081', 'g':'8082'}
+
+    DEFAULT_SERVERS = {
+        'digibytewiki.com':DEFAULT_PORTS,
+        'dgb-cce-1.coinomi.net':{'t':'5023', 's':'5023', 'h':'8081', 'g':'8082'},
+        'dgb-cce-2.coinomi.net':{'t':'5023', 's':'5023', 'h':'8081', 'g':'8082'}
+    }
+
+
+    # overriden to setup up the sqlite db
+    def set_headers_path(self, path):
+        self.headers_path = path
+        path_folder = os.path.split(path)[0]
+        self.db_file_path = os.path.join(path_folder, 'blockchain_db_dgb.db')
+        self.init_db_file()
+
+    def init_db_file(self):
+        header_db_file = sqlite3.connect(self.db_path())
+        header_db = header_db_file.cursor()
+        try:
+            first_header = header_db.execute('SELECT * FROM headers WHERE height = 0')
+        except Exception:
+            header_db.execute('CREATE TABLE headers (header, algo, height int UNIQUE)')
+        header_db_file.commit()
+        header_db_file.close()
+
+    def db_path(self):
+        return self.db_file_path
+
+    def verify_chain(self, chain):
+
+        first_header = chain[0]
+        prev_header = self.read_header(first_header.get('block_height') -1)
+
+        for header in chain:
+
+            height = header.get('block_height')
+
+            prev_hash = self.hash_header(prev_header)
+            bits, target = self.get_target(height, chain)
+            version = header.get('version')
+            if version == 2:
+                _hash = self.pow_hash_sha_header(header)
+            elif version == 514:
+                _hash = self.pow_hash_scrypt_header(header)
+            elif version == 1026:
+                _hash = self.pow_hash_groestl_header(header)
+            elif version == 1538:
+                _hash = self.pow_hash_skein_header(header)
+            elif version == 2050:
+                _hash = self.pow_hash_qubit_header(header)
+            else:
+                print_error( "error unknown block version")
+            try:
+                assert prev_hash == header.get('prev_block_hash')
+                assert bits == header.get('bits')
+                assert int('0x'+_hash,16) < target
+            except Exception:
+                return False
+
+            prev_header = header
+
+        return True
+
+    def verify_chunk(self, index, hexdata):
+        data = hexdata.decode('hex')
+        height = index*2016
+        num = len(data)/80
+
+        if index == 0:  
+            previous_hash = ("0"*64)
+        else:
+            prev_header = self.read_header(height-1)
+            if prev_header is None: raise
+            previous_hash = self.hash_header(prev_header)
+
+        bits, target = self.get_target(height, data=data)
+
+        for i in range(num):
+            height = index*2016 + i
+            bits, target = self.get_target(height, data=data)
+            raw_header = data[i*80:(i+1)*80]
+            header = self.header_from_string(raw_header)
+            version = header.get('version')
+            if version == 2:
+                _hash = self.pow_hash_sha_header(header)
+            elif version == 514:
+                _hash = self.pow_hash_scrypt_header(header)
+            elif version == 1026:
+                _hash = self.pow_hash_groestl_header(header)
+            elif version == 1538:
+                _hash = self.pow_hash_skein_header(header)
+            elif version == 2050:
+                _hash = self.pow_hash_qubit_header(header)
+            else:
+                print_error( "error unknown block version")
+            assert previous_hash == header.get('prev_block_hash')
+            assert bits == header.get('bits')
+            assert int('0x'+_hash,16) < target
+
+            previous_header = header
+            previous_hash = self.hash_header(header)
+
+        self.save_chunk(index, data)
+        print_error("validated chunk %d"%height)
+
+    def header_to_string(self, res):
+        s = int_to_hex(res.get('version'),4) \
+            + rev_hex(res.get('prev_block_hash')) \
+            + rev_hex(res.get('merkle_root')) \
+            + int_to_hex(int(res.get('timestamp')),4) \
+            + int_to_hex(int(res.get('bits')),4) \
+            + int_to_hex(int(res.get('nonce')),4)
+        return s
+
+
+    def header_from_string(self, s):
+        hex_to_int = lambda s: int('0x' + s[::-1].encode('hex'), 16)
+        h = {}
+        h['version'] = hex_to_int(s[0:4])
+        h['prev_block_hash'] = hash_encode(s[4:36])
+        h['merkle_root'] = hash_encode(s[36:68])
+        h['timestamp'] = hex_to_int(s[68:72])
+        h['bits'] = hex_to_int(s[72:76])
+        h['nonce'] = hex_to_int(s[76:80])
+        return h
+
+    def hash_header(self, header):
+        return rev_hex(Hash(self.header_to_string(header).decode('hex')).encode('hex'))
+
+    def pow_hash_scrypt_header(self, header):
+        return rev_hex(getPoWScryptHash(self.header_to_string(header).decode('hex')).encode('hex'))
+
+    def pow_hash_sha_header(self,header):
+        return self.hash_header(header)
+
+    def pow_hash_skein_header(self,header):
+        return rev_hex(getPoWSkeinHash(self.header_to_string(header).decode('hex')).encode('hex'))
+
+    def pow_hash_groestl_header(self,header):
+        return rev_hex(getPoWGroestlHash(self.header_to_string(header).decode('hex')).encode('hex'))
+
+    def pow_hash_qubit_header(self,header):
+        return rev_hex(getPoWQubitHash(self.header_to_string(header).decode('hex')).encode('hex'))
+
+    def save_chunk(self, index, chunk):
+        filename = self.path()
+        f = open(filename,'rb+')
+        f.seek(index*2016*80)
+        h = f.write(chunk)
+        f.close()
+        self.set_local_height()
+
+    def save_header(self, header):
+        data = self.header_to_string(header).decode('hex')
+        assert len(data) == 80
+        height = header.get('block_height')
+        filename = self.path()
+        f = open(filename,'rb+')
+        f.seek(height*80)
+        h = f.write(data)
+        f.close()
+        self.set_local_height()
+
+    def read_header(self, block_height):
+        name = self.path()
+        if os.path.exists(name):
+            f = open(name,'rb')
+            f.seek(block_height*80)
+            h = f.read(80)
+            f.close()
+            if len(h) == 80:
+                h = self.header_from_string(h)
+                return h 
+
+    def get_target(self, height, chain=None, data=None):
+        if chain is None:
+            chain = []  # Do not use mutables as default values!
+
+        header_db_file = sqlite3.connect(self.db_path())
+        header_db = header_db_file.cursor()
+        max_target = 0x00000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        if height == 0 and data: 
+            header_db.execute('''INSERT OR REPLACE INTO headers VALUES ('%s', '%s', '%s')''' % (data[0:80].encode('hex'), str(2), str(0)))
+            header_db_file.commit()
+            header_db_file.close()
+        if height == 0: return 0x1e0ffff0, 0x00000FFFF0000000000000000000000000000000000000000000000000000000
+
+        # Myriadcoin
+        bits = last.get('bits') 
+        target = bits_to_target(bits)
+
+        # new target
+        new_target = min( max_target, (target * nActualTimespan)/nAvgInterval )
+        new_bits = target_to_bits(new_target)
+
+        header_db_file.commit()
+        header_db_file.close()
+        return new_bits, new_target
+
+Currency = Digibyte
