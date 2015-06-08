@@ -82,7 +82,7 @@ setup(
 	'trezor==0.6.3',
         'neoscrypt==1.0',
         'skeinhash==1.0',
-        'qubit_hash==1.0',
+        'qubit_hashs==1.0',
         'groestlcoin_hash==1.0'
     ],
     dependency_links=[
@@ -90,7 +90,7 @@ setup(
         "git+https://github.com/mazaclub/python-trezor#egg=trezor",
         "git+https://github.com/kefkius/neoscrypt#egg=neoscrypt",
         "git+https://github.com/kefkius/skeinhash#egg=skeinhash",
-        "git+https://github.com/kefkius/qubit-hash-python#egg=qubit_hash",
+        "git+https://github.com/kefkius/qubit-hash-python#egg=qubit_hashs",
         "git+https://github.com/groestlcoin/groestlcoin-hash-python#egg=groestlcoin_hash"
     ],
     package_dir={
