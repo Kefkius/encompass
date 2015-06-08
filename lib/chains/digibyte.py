@@ -4,6 +4,11 @@ import os
 import hashlib
 import sqlite3
 
+from ltc_scrypt import getPoWHash as getPoWScryptHash
+from groestl_hash import getPoWHash as getPoWGroestlHash
+from skeinhash import getPoWHash as getPoWSkeinHash
+from qubit_hash import getPoWHash as getPoWQubitHash
+from groestlcoin_hash import getHash as getPoWGroestlHash
 
 class Digibyte(CryptoCur):
     PoW = True
@@ -72,7 +77,9 @@ class Digibyte(CryptoCur):
             prev_hash = self.hash_header(prev_header)
             bits, target = self.get_target(height, chain)
             version = header.get('version')
-            if version == 2:
+            if version == 1:
+                _hash = self.pow_hash_scrypt_header(header)
+            elif version == 2:
                 _hash = self.pow_hash_sha_header(header)
             elif version == 514:
                 _hash = self.pow_hash_scrypt_header(header)
@@ -83,7 +90,7 @@ class Digibyte(CryptoCur):
             elif version == 2050:
                 _hash = self.pow_hash_qubit_header(header)
             else:
-                print_error( "error unknown block version")
+                print( "error unknown block version")
             try:
                 assert prev_hash == header.get('prev_block_hash')
                 assert bits == header.get('bits')
@@ -115,6 +122,8 @@ class Digibyte(CryptoCur):
             raw_header = data[i*80:(i+1)*80]
             header = self.header_from_string(raw_header)
             version = header.get('version')
+            if version == 1:
+                _hash = self.pow_hash_scrypt_header(header)
             if version == 2:
                 _hash = self.pow_hash_sha_header(header)
             elif version == 514:
@@ -126,7 +135,7 @@ class Digibyte(CryptoCur):
             elif version == 2050:
                 _hash = self.pow_hash_qubit_header(header)
             else:
-                print_error( "error unknown block version")
+                print( "error unknown block version")
             assert previous_hash == header.get('prev_block_hash')
             assert bits == header.get('bits')
             assert int('0x'+_hash,16) < target
@@ -135,28 +144,6 @@ class Digibyte(CryptoCur):
             previous_hash = self.hash_header(header)
 
         self.save_chunk(index, data)
-        print_error("validated chunk %d"%height)
-
-    def header_to_string(self, res):
-        s = int_to_hex(res.get('version'),4) \
-            + rev_hex(res.get('prev_block_hash')) \
-            + rev_hex(res.get('merkle_root')) \
-            + int_to_hex(int(res.get('timestamp')),4) \
-            + int_to_hex(int(res.get('bits')),4) \
-            + int_to_hex(int(res.get('nonce')),4)
-        return s
-
-
-    def header_from_string(self, s):
-        hex_to_int = lambda s: int('0x' + s[::-1].encode('hex'), 16)
-        h = {}
-        h['version'] = hex_to_int(s[0:4])
-        h['prev_block_hash'] = hash_encode(s[4:36])
-        h['merkle_root'] = hash_encode(s[36:68])
-        h['timestamp'] = hex_to_int(s[68:72])
-        h['bits'] = hex_to_int(s[72:76])
-        h['nonce'] = hex_to_int(s[76:80])
-        return h
 
     def hash_header(self, header):
         return rev_hex(Hash(self.header_to_string(header).decode('hex')).encode('hex'))
@@ -175,36 +162,6 @@ class Digibyte(CryptoCur):
 
     def pow_hash_qubit_header(self,header):
         return rev_hex(getPoWQubitHash(self.header_to_string(header).decode('hex')).encode('hex'))
-
-    def save_chunk(self, index, chunk):
-        filename = self.path()
-        f = open(filename,'rb+')
-        f.seek(index*2016*80)
-        h = f.write(chunk)
-        f.close()
-        self.set_local_height()
-
-    def save_header(self, header):
-        data = self.header_to_string(header).decode('hex')
-        assert len(data) == 80
-        height = header.get('block_height')
-        filename = self.path()
-        f = open(filename,'rb+')
-        f.seek(height*80)
-        h = f.write(data)
-        f.close()
-        self.set_local_height()
-
-    def read_header(self, block_height):
-        name = self.path()
-        if os.path.exists(name):
-            f = open(name,'rb')
-            f.seek(block_height*80)
-            h = f.read(80)
-            f.close()
-            if len(h) == 80:
-                h = self.header_from_string(h)
-                return h 
 
     def get_target(self, height, chain=None, data=None):
         if chain is None:
