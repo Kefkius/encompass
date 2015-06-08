@@ -21,6 +21,34 @@ def Hash(x):
     if type(x) is unicode: x=x.encode('utf-8')
     return sha256(sha256(x))
 
+def bits_to_target(bits):
+    """Convert a compact target representation to the actual target."""
+    MM = 256*256*256
+    a = bits%MM
+    if a < 0x8000:
+        a *= 256
+    target = (a) * pow(2, 8 * (bits/MM - 3))
+    return target
+
+def target_to_bits(target):
+    """Convert a target to a compact representation."""
+    MM = 256*256*256
+    c = ("%064X"%target)[2:]
+    i = 31
+    while c[0:2]=="00":
+        c = c[2:]
+        i -= 1
+
+    c = int('0x'+c[0:6],16)
+    if c >= 0x800000:
+        c /= 256
+        i += 1
+
+    new_bits = c + MM * i
+    return new_bits
+
+
+
 # Chain hook system
 #
 # This allows the active blockchain to hook into arbitrary functions
