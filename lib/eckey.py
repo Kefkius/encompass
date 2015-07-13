@@ -13,6 +13,7 @@ try:
 except ImportError:
     sys.exit("Error: AES does not seem to be installed. Try 'sudo pip install slowaes'")
 
+from util import print_error
 from util_coin import var_int, Hash
 import base58
 from base58 import bc_address_to_hash_160, public_key_to_bc_address
