@@ -19,6 +19,7 @@
 
 import threading, time, Queue, os, sys, shutil
 from util import user_dir, appdata_dir, print_error
+from util_coin import Hash, hash_encode, hash_decode
 from bitcoin import *
 
 
