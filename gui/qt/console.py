@@ -23,6 +23,8 @@ class Console(QtGui.QPlainTextEdit):
         self.history = []
         self.namespace = {}
         self.construct = []
+        # this will be changed in updateNamespace()
+        self.general_help = lambda: 'Encompass console'
 
         self.setGeometry(50, 75, 600, 400)
         self.setWordWrapMode(QtGui.QTextOption.WrapAnywhere)
@@ -46,6 +48,22 @@ class Console(QtGui.QPlainTextEdit):
 
 
     def updateNamespace(self, namespace):
+        # special help function
+        general_help = namespace.get('help')
+        if general_help:
+            self.general_help = general_help
+        def help(command_name=None):
+            if command_name:
+                help_str = command_name.__doc__
+            else:
+                help_str = '\n\n'.join([
+                                self.general_help(),
+                                'Use help(<command>) to see the help for a command.'])
+            # We print the string instead of returning it, so that newlines work.
+            if help_str:
+                self.appendPlainText(help_str)
+        namespace['help'] = help
+
         self.namespace.update(namespace)
 
     def showMessage(self, message):

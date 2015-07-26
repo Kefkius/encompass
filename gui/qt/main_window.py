@@ -1774,7 +1774,16 @@ class ElectrumWindow(QMainWindow):
         c = commands.Commands(self.config, self.wallet, self.network, lambda: self.console.set_json(True))
         methods = {}
         def mkfunc(f, method):
-            return lambda *args: apply( f, (method, args, self.password_dialog ))
+            def func_wrapper(*args):
+                return f(method, args, self.password_dialog)
+            # update command docstring so we can use help(command_name)
+            if getattr(c, method, None):
+                docstr = getattr(c, method).__doc__
+            else:
+                docstr = ''
+            func_wrapper.__doc__ = docstr
+            return func_wrapper
+
         for m in dir(c):
             if m[0]=='_' or m in ['network','wallet']: continue
             methods[m] = mkfunc(c._run, m)
