@@ -5,6 +5,7 @@ import traceback, platform
 from PyQt4 import QtCore
 from PyQt4 import QtGui
 from chainkey import util
+from chainkey import chainparams
 
 
 if platform.system() == 'Windows':
@@ -19,6 +20,7 @@ class Console(QtGui.QPlainTextEdit):
     def __init__(self, prompt='>> ', startup_message='', parent=None):
         QtGui.QPlainTextEdit.__init__(self, parent)
 
+        self.parent = parent
         self.prompt = prompt
         self.history = []
         self.namespace = {}
@@ -34,6 +36,15 @@ class Console(QtGui.QPlainTextEdit):
 
         self.updateNamespace({'run':self.run_script})
         self.set_json(False)
+
+    # Console needs its own setchain method.
+    def setchain(self, chaincode):
+        """Set the chain that your wallet is currently using."""
+        if not chainparams.is_known_chain(chaincode):
+            return "Invalid chain"
+        elif chaincode == chainparams.get_active_chain().code:
+            return "Selected chain is already active"
+        self.parent.emit(QtCore.SIGNAL('change_currency'), chaincode)
 
     def set_json(self, b):
         self.is_json = b
@@ -63,6 +74,10 @@ class Console(QtGui.QPlainTextEdit):
             if help_str:
                 self.appendPlainText(help_str)
         namespace['help'] = help
+
+        # another special function - setchain
+        if namespace.get('setchain'):
+            namespace['setchain'] = self.setchain
 
         self.namespace.update(namespace)
 

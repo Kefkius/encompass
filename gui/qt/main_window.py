@@ -1758,7 +1758,7 @@ class ElectrumWindow(QMainWindow):
 
     def create_console_tab(self):
         from console import Console
-        self.console = console = Console()
+        self.console = console = Console(parent=self)
         console.setObjectName("console_tab")
         return console
 
