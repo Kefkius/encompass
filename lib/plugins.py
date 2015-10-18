@@ -32,10 +32,10 @@ class Plugins(PrintError):
     def __init__(self, config, is_local, gui_name):
         if is_local:
             find = imp.find_module('plugins')
-            plugins = imp.load_module('electrum_plugins', *find)
+            plugins = imp.load_module('encompass_plugins', *find)
             self.pathname = find[1]
         else:
-            plugins = __import__('electrum_plugins')
+            plugins = __import__('encompass_plugins')
             self.pathname = None
 
         self.plugins = {}
@@ -59,13 +59,13 @@ class Plugins(PrintError):
         return len(self.plugins)
 
     def load_plugin(self, config, name):
-        full_name = 'electrum_plugins.' + name
+        full_name = 'encompass_plugins.' + name
         try:
             if self.pathname:  # local
                 path = os.path.join(self.pathname, name + '.py')
                 p = imp.load_source(full_name, path)
             else:
-                p = __import__(full_name, fromlist=['electrum_plugins'])
+                p = __import__(full_name, fromlist=['encompass_plugins'])
             plugin = p.Plugin(self, config, name)
             # Inform the plugin of our windows
             for window in self.windows:

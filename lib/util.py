@@ -136,20 +136,20 @@ def profiler(func):
 
 def user_dir():
     if "HOME" in os.environ:
-        return os.path.join(os.environ["HOME"], ".electrum")
+        return os.path.join(os.environ["HOME"], ".encompass")
     elif "APPDATA" in os.environ:
-        return os.path.join(os.environ["APPDATA"], "Electrum")
+        return os.path.join(os.environ["APPDATA"], "Encompass")
     elif "LOCALAPPDATA" in os.environ:
-        return os.path.join(os.environ["LOCALAPPDATA"], "Electrum")
+        return os.path.join(os.environ["LOCALAPPDATA"], "Encompass")
     elif 'ANDROID_DATA' in os.environ:
         try:
             import jnius
             env  = jnius.autoclass('android.os.Environment')
             _dir =  env.getExternalStorageDirectory().getPath()
-            return _dir + '/electrum/'
+            return _dir + '/encompass/'
         except ImportError:
             pass
-        return "/sdcard/electrum/"
+        return "/sdcard/encompass/"
     else:
         #raise Exception("No home directory found in environment variables.")
         return
