@@ -316,7 +316,7 @@ class Commands:
     @command('')
     def version(self):
         """Return the version of electrum."""
-        import electrum  # Needs to stay here to prevent ciruclar imports
+        import encompass  # Needs to stay here to prevent ciruclar imports
         return electrum.ELECTRUM_VERSION
 
     @command('w')

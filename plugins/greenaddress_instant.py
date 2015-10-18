@@ -23,8 +23,8 @@ import requests
 
 from PyQt4.QtGui import QMessageBox, QApplication, QPushButton
 
-from electrum.plugins import BasePlugin, hook
-from electrum.i18n import _
+from encompass.plugins import BasePlugin, hook
+from encompass.i18n import _
 
 
 

@@ -37,12 +37,12 @@ from PyQt4.QtCore import *
 import PyQt4.QtCore as QtCore
 import PyQt4.QtGui as QtGui
 
-from electrum.paymentrequest import PR_UNPAID, PR_PAID, PR_EXPIRED
-from electrum.plugins import BasePlugin, hook
-from electrum import util
-from electrum.paymentrequest import PaymentRequest
-from electrum.i18n import _
-from electrum_gui.qt.util import text_dialog, EnterButton
+from encompass.paymentrequest import PR_UNPAID, PR_PAID, PR_EXPIRED
+from encompass.plugins import BasePlugin, hook
+from encompass import util
+from encompass.paymentrequest import PaymentRequest
+from encompass.i18n import _
+from encompass_gui.qt.util import text_dialog, EnterButton
 
 
 
@@ -140,7 +140,7 @@ class Plugin(BasePlugin):
         menu.addAction(_("Send via e-mail"), lambda: self.send(window, addr))
 
     def send(self, window, addr):
-        from electrum import paymentrequest
+        from encompass import paymentrequest
         r = window.wallet.receive_requests.get(addr)
         message = r.get('memo', '')
         if r.get('signature'):
@@ -172,7 +172,7 @@ class Plugin(BasePlugin):
         return EnterButton(_('Settings'), self.settings_dialog)
 
     def settings_dialog(self, x):
-        from electrum_gui.qt.util import Buttons, CloseButton, OkButton
+        from encompass_gui.qt.util import Buttons, CloseButton, OkButton
 
         d = QDialog(self.settings_window)
         d.setWindowTitle("Email settings")

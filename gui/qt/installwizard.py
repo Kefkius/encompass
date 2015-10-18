@@ -6,18 +6,18 @@ from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import PyQt4.QtCore as QtCore
 
-import electrum
-from electrum.i18n import _
-from electrum import Wallet
-from electrum import bitcoin
-from electrum import util
+import encompass
+from encompass.i18n import _
+from encompass import Wallet
+from encompass import bitcoin
+from encompass import util
 
 import seed_dialog
 from network_dialog import NetworkDialog
 from util import *
 
-from electrum.plugins import always_hook, run_hook
-from electrum.mnemonic import prepare_seed
+from encompass.plugins import always_hook, run_hook
+from encompass.mnemonic import prepare_seed
 
 MSG_ENTER_ANYTHING    = _("Please enter a seed phrase, a master key, a list of Bitcoin addresses, or a list of private keys")
 MSG_SHOW_MPK          = _("Here is your master public key")

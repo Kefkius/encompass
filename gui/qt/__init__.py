@@ -29,11 +29,11 @@ from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import PyQt4.QtCore as QtCore
 
-from electrum.i18n import _, set_language
-from electrum.plugins import run_hook
-from electrum import SimpleConfig, Wallet, WalletStorage
-from electrum.paymentrequest import InvoiceStore
-from electrum.contacts import Contacts
+from encompass.i18n import _, set_language
+from encompass.plugins import run_hook
+from encompass import SimpleConfig, Wallet, WalletStorage
+from encompass.paymentrequest import InvoiceStore
+from encompass.contacts import Contacts
 from installwizard import InstallWizard
 
 

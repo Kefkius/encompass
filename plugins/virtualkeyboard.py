@@ -1,6 +1,6 @@
 from PyQt4.QtGui import *
-from electrum.plugins import BasePlugin, hook
-from electrum.i18n import _
+from encompass.plugins import BasePlugin, hook
+from encompass.i18n import _
 import random
 
 class Plugin(BasePlugin):

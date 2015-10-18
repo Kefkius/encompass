@@ -30,19 +30,19 @@ from functools import partial
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 
-import electrum
-from electrum import bitcoin
-from electrum.bitcoin import *
-from electrum.mnemonic import Mnemonic
-from electrum import version
-from electrum.wallet import Multisig_Wallet, BIP32_Wallet
-from electrum.i18n import _
-from electrum.plugins import BasePlugin, run_hook, hook
+import encompass
+from encompass import bitcoin
+from encompass.bitcoin import *
+from encompass.mnemonic import Mnemonic
+from encompass import version
+from encompass.wallet import Multisig_Wallet, BIP32_Wallet
+from encompass.i18n import _
+from encompass.plugins import BasePlugin, run_hook, hook
 
-from electrum_gui.qt.util import *
-from electrum_gui.qt.qrcodewidget import QRCodeWidget
-from electrum_gui.qt.amountedit import AmountEdit
-from electrum_gui.qt.main_window import StatusBarButton
+from encompass_gui.qt.util import *
+from encompass_gui.qt.qrcodewidget import QRCodeWidget
+from encompass_gui.qt.amountedit import AmountEdit
+from encompass_gui.qt.main_window import StatusBarButton
 
 from decimal import Decimal
 
@@ -238,7 +238,7 @@ def make_billing_address(wallet, num):
     return address
 
 def need_server(wallet, tx):
-    from electrum.account import BIP32_Account
+    from encompass.account import BIP32_Account
     # Detect if the server is needed
     long_id, short_id = get_user_id(wallet)
     xpub3 = wallet.master_public_keys['x3/']

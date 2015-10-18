@@ -1,7 +1,7 @@
-from electrum.plugins import BasePlugin, hook
-from electrum_gui.qt.util import WaitingDialog, EnterButton
-from electrum.util import print_msg, print_error
-from electrum.i18n import _
+from encompass.plugins import BasePlugin, hook
+from encompass_gui.qt.util import WaitingDialog, EnterButton
+from encompass.util import print_msg, print_error
+from encompass.i18n import _
 
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *

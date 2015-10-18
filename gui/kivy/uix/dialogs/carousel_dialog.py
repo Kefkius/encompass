@@ -2,7 +2,7 @@
 and indicators on either top, left, bottom or right side. These indicators can
 be touched to travel to a particular slide.
 '''
-from electrum.i18n import _
+from encompass.i18n import _
 
 
 from kivy.app import App

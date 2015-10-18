@@ -19,12 +19,12 @@ import PyQt4.QtGui as QtGui
 import aes
 import base64
 
-import electrum
-from electrum.plugins import BasePlugin, hook
-from electrum.i18n import _
+import encompass
+from encompass.plugins import BasePlugin, hook
+from encompass.i18n import _
 
-from electrum_gui.qt import HelpButton, EnterButton
-from electrum_gui.qt.util import ThreadedButton, Buttons, CancelButton, OkButton
+from encompass_gui.qt import HelpButton, EnterButton
+from encompass_gui.qt.util import ThreadedButton, Buttons, CancelButton, OkButton
 
 class Plugin(BasePlugin):
 

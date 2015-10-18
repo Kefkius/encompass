@@ -33,18 +33,18 @@ import PyQt4.QtCore as QtCore
 
 import icons_rc
 
-from electrum.bitcoin import MIN_RELAY_TX_FEE, COIN, is_valid
-from electrum.plugins import run_hook
-from electrum.i18n import _
-from electrum.util import block_explorer, block_explorer_info, block_explorer_URL
-from electrum.util import format_satoshis, format_satoshis_plain, format_time
-from electrum.util import PrintError, NotEnoughFunds, StoreDict
-from electrum import Transaction
-from electrum import mnemonic
-from electrum import util, bitcoin, commands, Wallet
-from electrum import SimpleConfig, Wallet, WalletStorage
-from electrum import Imported_Wallet
-from electrum import paymentrequest
+from encompass.bitcoin import MIN_RELAY_TX_FEE, COIN, is_valid
+from encompass.plugins import run_hook
+from encompass.i18n import _
+from encompass.util import block_explorer, block_explorer_info, block_explorer_URL
+from encompass.util import format_satoshis, format_satoshis_plain, format_time
+from encompass.util import PrintError, NotEnoughFunds, StoreDict
+from encompass import Transaction
+from encompass import mnemonic
+from encompass import util, bitcoin, commands, Wallet
+from encompass import SimpleConfig, Wallet, WalletStorage
+from encompass import Imported_Wallet
+from encompass import paymentrequest
 
 from amountedit import BTCAmountEdit, MyLineEdit, BTCkBEdit
 from network_dialog import NetworkDialog
@@ -56,7 +56,7 @@ from transaction_dialog import show_transaction
 
 
 
-from electrum import ELECTRUM_VERSION
+from encompass import ELECTRUM_VERSION
 import re
 
 from util import *
@@ -81,8 +81,8 @@ class StatusBarButton(QPushButton):
             self.func()
 
 
-from electrum.paymentrequest import PR_UNPAID, PR_PAID, PR_UNKNOWN, PR_EXPIRED
-from electrum.paymentrequest import PaymentRequest, get_payment_request
+from encompass.paymentrequest import PR_UNPAID, PR_PAID, PR_UNKNOWN, PR_EXPIRED
+from encompass.paymentrequest import PaymentRequest, get_payment_request
 
 pr_icons = {
     PR_UNPAID:":icons/unpaid.png",
@@ -1357,7 +1357,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         if r or (name and sig):
             def get_payment_request_thread():
                 if name and sig:
-                    from electrum import paymentrequest
+                    from encompass import paymentrequest
                     pr = paymentrequest.serialize_request(out).SerializeToString()
                     self.payment_request = paymentrequest.PaymentRequest(pr)
                 else:
@@ -2226,7 +2226,7 @@ class ElectrumWindow(QMainWindow, PrintError):
 
 
     def read_tx_from_qrcode(self):
-        from electrum import qrscanner
+        from encompass import qrscanner
         try:
             data = qrscanner.scan_qr(self.config)
         except BaseException, e:
@@ -2274,7 +2274,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             self.show_transaction(tx)
 
     def do_process_from_txid(self):
-        from electrum import transaction
+        from encompass import transaction
         txid, ok = QInputDialog.getText(self, _('Lookup transaction'), _('Transaction ID') + ':')
         if ok and txid:
             txid = str(txid).strip()
@@ -2561,7 +2561,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         lang_help = _('Select which language is used in the GUI (after restart).')
         lang_label = HelpLabel(_('Language') + ':', lang_help)
         lang_combo = QComboBox()
-        from electrum.i18n import languages
+        from encompass.i18n import languages
         lang_combo.addItems(languages.values())
         try:
             index = languages.keys().index(self.config.get("language",''))
@@ -2726,7 +2726,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         block_ex_combo.currentIndexChanged.connect(on_be)
         gui_widgets.append((block_ex_label, block_ex_combo))
 
-        from electrum import qrscanner
+        from encompass import qrscanner
         system_cameras = qrscanner._find_system_cameras()
         qr_combo = QComboBox()
         qr_combo.addItem("Default","default")

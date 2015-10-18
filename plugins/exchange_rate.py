@@ -12,13 +12,13 @@ import csv
 from decimal import Decimal
 from functools import partial
 
-from electrum.bitcoin import COIN
-from electrum.plugins import BasePlugin, hook
-from electrum.i18n import _
-from electrum.util import PrintError, ThreadJob, timestamp_to_datetime
-from electrum.util import format_satoshis
-from electrum_gui.qt.util import *
-from electrum_gui.qt.amountedit import AmountEdit
+from encompass.bitcoin import COIN
+from encompass.plugins import BasePlugin, hook
+from encompass.i18n import _
+from encompass.util import PrintError, ThreadJob, timestamp_to_datetime
+from encompass.util import format_satoshis
+from encompass_gui.qt.util import *
+from encompass_gui.qt.amountedit import AmountEdit
 
 # See https://en.wikipedia.org/wiki/ISO_4217
 CCY_PRECISIONS = {'BHD': 3, 'BIF': 0, 'BYR': 0, 'CLF': 4, 'CLP': 0,

@@ -1,6 +1,6 @@
 import select, time, electrum, Queue
-from electrum import Connection, Interface, SimpleConfig
-from electrum.network import filter_protocol, parse_servers
+from encompass import Connection, Interface, SimpleConfig
+from encompass.network import filter_protocol, parse_servers
 from collections import defaultdict
 
 # electrum.util.set_verbosity(1)

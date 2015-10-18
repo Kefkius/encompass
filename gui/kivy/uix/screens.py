@@ -13,11 +13,11 @@ from kivy.properties import (ObjectProperty, DictProperty, NumericProperty,
 from kivy.lang import Builder
 from kivy.factory import Factory
 
-from electrum.i18n import _
-from electrum.util import profiler
-from electrum import bitcoin
-from electrum.util import timestamp_to_datetime
-from electrum.plugins import run_hook
+from encompass.i18n import _
+from encompass.util import profiler
+from encompass import bitcoin
+from encompass.util import timestamp_to_datetime
+from encompass.plugins import run_hook
 
 class CScreen(Factory.Screen):
 
@@ -255,7 +255,7 @@ class ReceiveScreen(CScreen):
         raise
 
     def update_qr(self):
-        from electrum.util import create_URI
+        from encompass.util import create_URI
         address = self.screen.ids.get('address').text
         amount = self.screen.ids.get('amount').text
         default_text = self.screen.ids.get('amount').default_text

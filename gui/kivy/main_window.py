@@ -5,12 +5,12 @@ import datetime
 import traceback
 from decimal import Decimal
 
-import electrum
-from electrum import WalletStorage, Wallet
-from electrum.i18n import _, set_language
-from electrum.contacts import Contacts
-from electrum.util import profiler
-from electrum.plugins import run_hook
+import encompass
+from encompass import WalletStorage, Wallet
+from encompass.i18n import _, set_language
+from encompass.contacts import Contacts
+from encompass.util import profiler
+from encompass.plugins import run_hook
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -451,7 +451,7 @@ class ElectrumWindow(App):
         return amount
 
     def format_amount(self, x, is_diff=False, whitespaces=False):
-        from electrum.util import format_satoshis
+        from encompass.util import format_satoshis
         return format_satoshis(x, is_diff, self.num_zeros,
                                self.decimal_point(), whitespaces)
 
@@ -562,7 +562,7 @@ class ElectrumWindow(App):
         label = unicode(label)
         global is_valid
         if not is_valid:
-            from electrum.bitcoin import is_valid
+            from encompass.bitcoin import is_valid
 
         if is_valid(address):
             if label:

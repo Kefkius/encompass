@@ -4,11 +4,11 @@ import tlslite
 import time
 import hashlib
 
-from electrum.transaction import Transaction
-from electrum import bitcoin
-from electrum import x509
-from electrum import paymentrequest
-from electrum import paymentrequest_pb2 as pb2
+from encompass.transaction import Transaction
+from encompass import bitcoin
+from encompass import x509
+from encompass import paymentrequest
+from encompass import paymentrequest_pb2 as pb2
 
 chain_file = 'mychain.pem'
 cert_file = 'mycert.pem'

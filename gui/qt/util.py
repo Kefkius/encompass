@@ -1,4 +1,4 @@
-from electrum.i18n import _
+from encompass.i18n import _
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import os.path

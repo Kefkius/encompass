@@ -1,5 +1,5 @@
-from electrum import Wallet
-from electrum.i18n import _
+from encompass import Wallet
+from encompass.i18n import _
 
 from kivy.app import App
 from kivy.uix.widget import Widget
@@ -106,7 +106,7 @@ class InstallWizard(Widget):
             self.dispatch('on_wizard_complete', None)
 
     def restore_seed_dialog(self, wallet):
-        from electrum_gui.kivy.uix.dialogs.create_restore import\
+        from encompass_gui.kivy.uix.dialogs.create_restore import\
             RestoreSeedDialog
         RestoreSeedDialog(
             on_release=partial(self.on_verify_restore_ok, wallet),
@@ -191,7 +191,7 @@ class InstallWizard(Widget):
                                                         wallet, mode=mode))
 
 
-        from electrum_gui.kivy.uix.dialogs.create_restore import InitSeedDialog
+        from encompass_gui.kivy.uix.dialogs.create_restore import InitSeedDialog
         InitSeedDialog(message=msg2,
             seed_msg=brainwallet, on_release=on_ok_press, mode=mode).open()
 
@@ -302,7 +302,7 @@ class InstallWizard(Widget):
                 self.load_wallet()
             self.app.update_wallet()
 
-        from electrum_gui.kivy.uix.dialogs.create_restore import ChangePasswordDialog
+        from encompass_gui.kivy.uix.dialogs.create_restore import ChangePasswordDialog
         cpd = ChangePasswordDialog(
                              message=msg,
                              mode=mode,

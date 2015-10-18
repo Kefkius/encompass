@@ -11,19 +11,19 @@ import imp
 version = imp.load_source('version', 'lib/version.py')
 
 if sys.version_info[:3] < (2, 7, 0):
-    sys.exit("Error: Electrum requires Python version >= 2.7.0...")
+    sys.exit("Error: Encompass requires Python version >= 2.7.0...")
 
 data_files = []
 
 if platform.system() in ['Linux', 'FreeBSD', 'DragonFly']:
     usr_share = os.path.join(sys.prefix, "share")
     data_files += [
-        (os.path.join(usr_share, 'applications/'), ['electrum.desktop']),
-        (os.path.join(usr_share, 'pixmaps/'), ['icons/electrum.png'])
+        (os.path.join(usr_share, 'applications/'), ['encompass.desktop']),
+        (os.path.join(usr_share, 'pixmaps/'), ['icons/encompass.png'])
     ]
 
 setup(
-    name="Electrum",
+    name="Encompass",
     version=version.ELECTRUM_VERSION,
     install_requires=[
         'slowaes>=0.1a1',
@@ -35,24 +35,24 @@ setup(
         'dnspython',
     ],
     package_dir={
-        'electrum': 'lib',
-        'electrum_gui': 'gui',
-        'electrum_plugins': 'plugins',
+        'encompass': 'lib',
+        'encompass_gui': 'gui',
+        'encompass_plugins': 'plugins',
     },
-    packages=['electrum','electrum_gui','electrum_gui.qt','electrum_plugins'],
+    packages=['encompass','encompass_gui','encompass_gui.qt','encompass_plugins'],
     package_data={
-        'electrum': [
+        'encompass': [
             'www/index.html',
             'wordlist/*.txt',
             'locale/*/LC_MESSAGES/electrum.mo',
         ]
     },
-    scripts=['electrum'],
+    scripts=['encompass'],
     data_files=data_files,
-    description="Lightweight Bitcoin Wallet",
-    author="Thomas Voegtlin",
-    author_email="thomasv@electrum.org",
+    description="Lightweight Multi-Coin Wallet",
+    author="Tyler Willis, Rob Nelson, mazaclub",
+    author_email="encompass-security@maza.club",
     license="GNU GPLv3",
-    url="https://electrum.org",
-    long_description="""Lightweight Bitcoin Wallet"""
+    url="https://maza.club/encompass",
+    long_description="""Lightweight Multi-Coin Wallet for Electrum-supported coins."""
 )

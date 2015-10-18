@@ -1,11 +1,11 @@
 import curses, datetime, locale
 from decimal import Decimal
 _ = lambda x:x
-from electrum.util import format_satoshis, set_verbosity
-from electrum.util import StoreDict
-from electrum.bitcoin import is_valid, COIN
+from encompass.util import format_satoshis, set_verbosity
+from encompass.util import StoreDict
+from encompass.bitcoin import is_valid, COIN
 
-from electrum import Wallet, WalletStorage
+from encompass import Wallet, WalletStorage
 
 import tty, sys
 
