@@ -101,7 +101,7 @@ class QRDialog(QDialog):
         hbox = QHBoxLayout()
         hbox.addStretch(1)
 
-        config = electrum.get_config()
+        config = encompass.get_config()
         if config:
             filename = os.path.join(config.path, "qrcode.bmp")
 

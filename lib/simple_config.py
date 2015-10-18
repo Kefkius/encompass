@@ -61,16 +61,16 @@ class SimpleConfig(object):
             self.system_config = read_system_config_function()
 
         # Set self.path and read the user config
-        self.user_config = {}  # for self.get in electrum_path()
-        self.path = self.electrum_path()
+        self.user_config = {}  # for self.get in encompass_path()
+        self.path = self.encompass_path()
         self.user_config = read_user_config_function(self.path)
         # Upgrade obsolete keys
         self.fixup_keys({'auto_cycle': 'auto_connect'})
         # Make a singleton instance of 'self'
         set_config(self)
 
-    def electrum_path(self):
-        # Read electrum_path from command line / system configuration
+    def encompass_path(self):
+        # Read encompass_path from command line / system configuration
         # Otherwise use the user's default data directory.
         path = self.get('encompass_path')
         if path is None:
