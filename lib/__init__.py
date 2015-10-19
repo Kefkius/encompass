@@ -7,6 +7,7 @@ from interface import Connection, Interface
 from simple_config import SimpleConfig, get_config, set_config
 import bitcoin
 import account
+import script
 import transaction
 from transaction import Transaction
 from plugins import BasePlugin
