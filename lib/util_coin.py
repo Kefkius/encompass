@@ -1,6 +1,6 @@
 """Utility functions involving coins."""
-
 import hashlib
+from collections import namedtuple
 
 COIN = 100000000
 
@@ -46,3 +46,56 @@ def op_push(i):
 hash_encode = lambda x: x[::-1].encode('hex')
 hash_decode = lambda x: x.decode('hex')[::-1]
 
+def bits_to_target(bits):
+    """Convert a compact representation to a hex target."""
+    MM = 256*256*256
+    a = bits%MM
+    if a < 0x8000:
+        a *= 256
+    target = (a) * pow(2, 8 * (bits/MM - 3))
+    return target
+
+def target_to_bits(target):
+    """Convert a target to compact representation."""
+    MM = 256*256*256
+    c = ("%064X"%target)[2:]
+    i = 31
+    while c[0:2]=="00":
+        c = c[2:]
+        i -= 1
+
+    c = int('0x'+c[0:6],16)
+    if c >= 0x800000:
+        c /= 256
+        i += 1
+
+    new_bits = c + MM * i
+    return new_bits
+
+BlockExplorer = namedtuple('BlockExplorer', ('name', 'base_url', 'routes'))
+class BlockExplorer(object):
+    """Block explorer.
+
+    Attributes:
+        name (str): Identifying string.
+        base_url (str): Base URL for retrieving data.
+        routes (dict): Dict of routes for retrieving data.
+            The string '%' will be replaced by the item (e.g. tx hash).
+    """
+    def __init__(self, name='', base_url='', routes=None):
+        if routes is None: routes = {}
+        self.name = name
+        self.base_url = base_url
+        self.routes = routes
+
+    def get_url(self, kind, item):
+        """Construct URL retrieving data.
+
+        Args:
+            kind (str): Kind of data (e.g. 'tx').
+            item (str): Identifier (e.g. tx hash).
+        """
+        if not self.routes.get(kind): return
+        route = self.routes[kind].replace('%', item)
+        url = ''.join(self.base_url, route)
+        return url

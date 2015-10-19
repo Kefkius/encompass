@@ -77,7 +77,7 @@ if is_bundle or is_local or is_android:
     imp.load_module('encompass_gui', *imp.find_module('gui'))
 
 
-from encompass import util
+from encompass import util, chainparams
 from encompass import SimpleConfig, Network, Wallet, WalletStorage
 from encompass.util import print_msg, print_error, print_stderr, print_json, set_verbosity, InvalidPassword
 from encompass.plugins import Plugins, run_hook, always_hook
@@ -473,6 +473,7 @@ if __name__ == '__main__':
     config = SimpleConfig(config_options)
     cmd_name = config.get('cmd')
 
+    chainparams.init_chains()
     # initialize plugins.
     gui_name = config.get('gui', 'qt') if cmd_name == 'gui' else 'cmdline'
     plugins = Plugins(config, is_bundle or is_local or is_android, gui_name)
