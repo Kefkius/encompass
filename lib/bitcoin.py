@@ -24,6 +24,8 @@ import hmac
 
 import version
 from util import print_error, InvalidPassword
+from util_coin import (COIN, sha256, Hash, rev_hex, int_to_hex,
+                    var_int, op_push, hash_encode, hash_decode)
 
 import ecdsa
 import aes
@@ -34,7 +36,6 @@ DUST_THRESHOLD = 546
 MIN_RELAY_TX_FEE = 1000
 RECOMMENDED_FEE = 50000
 COINBASE_MATURITY = 100
-COIN = 100000000
 
 # AES encryption
 EncodeAES = lambda secret, s: base64.b64encode(aes.encryptData(secret,s))
@@ -98,51 +99,6 @@ def pw_decode(s, password):
     else:
         return s
 
-
-def rev_hex(s):
-    return s.decode('hex')[::-1].encode('hex')
-
-
-def int_to_hex(i, length=1):
-    s = hex(i)[2:].rstrip('L')
-    s = "0"*(2*length - len(s)) + s
-    return rev_hex(s)
-
-
-def var_int(i):
-    # https://en.bitcoin.it/wiki/Protocol_specification#Variable_length_integer
-    if i<0xfd:
-        return int_to_hex(i)
-    elif i<=0xffff:
-        return "fd"+int_to_hex(i,2)
-    elif i<=0xffffffff:
-        return "fe"+int_to_hex(i,4)
-    else:
-        return "ff"+int_to_hex(i,8)
-
-
-def op_push(i):
-    if i<0x4c:
-        return int_to_hex(i)
-    elif i<0xff:
-        return '4c' + int_to_hex(i)
-    elif i<0xffff:
-        return '4d' + int_to_hex(i,2)
-    else:
-        return '4e' + int_to_hex(i,4)
-
-
-def sha256(x):
-    return hashlib.sha256(x).digest()
-
-
-def Hash(x):
-    if type(x) is unicode: x=x.encode('utf-8')
-    return sha256(sha256(x))
-
-
-hash_encode = lambda x: x[::-1].encode('hex')
-hash_decode = lambda x: x.decode('hex')[::-1]
 hmac_sha_512 = lambda x,y: hmac.new(x, y, hashlib.sha512).digest()
 
 def is_new_seed(x, prefix=version.SEED_PREFIX):

@@ -1,4 +1,5 @@
 from version import ELECTRUM_VERSION
+import util_coin
 from util import format_satoshis, print_msg, print_json, print_error, set_verbosity
 from wallet import Synchronizer, WalletStorage
 from wallet import Wallet, Imported_Wallet
