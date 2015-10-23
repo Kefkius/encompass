@@ -5,6 +5,7 @@ import os
 
 from copy import deepcopy
 from util import user_dir, print_error, print_msg, print_stderr
+import chainparams
 
 SYSTEM_CONFIG_PATH = "/etc/encompass.conf"
 
@@ -66,6 +67,10 @@ class SimpleConfig(object):
         self.user_config = read_user_config_function(self.path)
         # Upgrade obsolete keys
         self.fixup_keys({'auto_cycle': 'auto_connect'})
+
+        chaincode = self.get_active_chain_code(default='BTC')
+        if self.get_above_chain(chaincode, None) is None:
+            self.set_key_above_chain(chaincode, {})
         # Make a singleton instance of 'self'
         set_config(self)
 
@@ -100,7 +105,18 @@ class SimpleConfig(object):
         if self.fixup_config_keys(self.user_config, keypairs):
             self.save_user_config()
 
-    def set_key(self, key, value, save = True):
+    def set_active_chain_code(self, chaincode):
+        if not chainparams.is_known_chain(chaincode):
+            return False
+        if self.get_above_chain(chaincode, None) is None:
+            self.set_key_above_chain(chaincode, {})
+        self.set_key_above_chain('active_chain', chaincode)
+        chainparams.set_active_chain(chaincode)
+
+    def get_active_chain_code(self, default=None):
+        return self.get_above_chain('active_chain', default)
+
+    def set_key_above_chain(self, key, value, save = True):
         if not self.is_modifiable(key):
             print_stderr("Warning: not changing config key '%s' set on the command line" % key)
             return
@@ -111,13 +127,27 @@ class SimpleConfig(object):
                 self.save_user_config()
         return
 
-    def get(self, key, default=None):
+    def get_above_chain(self, key, default=None):
         with self.lock:
             out = self.cmdline_options.get(key)
             if out is None:
                 out = self.user_config.get(key)
                 if out is None:
                     out = self.system_config.get(key, default)
+        return out
+
+    def set_key(self, key, value, save = True):
+        chaincode = self.get_active_chain_code()
+        chain_config = self.get_above_chain(chaincode, {})
+        chain_config[key] = value
+        self.set_key_above_chain(chaincode, chain_config)
+
+    def get(self, key, default=None):
+        chaincode = self.get_active_chain_code()
+        with self.lock:
+            out = self.cmdline_options.get(key)
+            if out is None:
+                out = self.user_config.get(chaincode, {}).get(key, default)
         return out
 
     def is_modifiable(self, key):

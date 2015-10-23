@@ -458,6 +458,7 @@ if __name__ == '__main__':
         config_options['encompass_path'] = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'encompass_data')
 
     set_verbosity(config_options.get('verbose'))
+    chainparams.init_chains()
 
     # check uri
     uri = config_options.get('url')
@@ -473,7 +474,10 @@ if __name__ == '__main__':
     config = SimpleConfig(config_options)
     cmd_name = config.get('cmd')
 
-    chainparams.init_chains()
+    if not config.get_active_chain_code():
+        config.set_active_chain_code('BTC')
+    if not chainparams.is_known_chain(config.get_active_chain_code()):
+        config.set_active_chain_code('BTC')
     # initialize plugins.
     gui_name = config.get('gui', 'qt') if cmd_name == 'gui' else 'cmdline'
     plugins = Plugins(config, is_bundle or is_local or is_android, gui_name)
