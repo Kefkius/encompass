@@ -33,7 +33,7 @@ import PyQt4.QtCore as QtCore
 
 import icons_rc
 
-from encompass.bitcoin import MIN_RELAY_TX_FEE, COIN, is_valid
+from encompass.bitcoin import COIN, is_valid
 from encompass.plugins import run_hook
 from encompass.i18n import _
 from encompass.util import block_explorer, block_explorer_info, block_explorer_URL
@@ -1197,7 +1197,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             self.show_message(str(e))
             return
 
-        if tx.get_fee() < MIN_RELAY_TX_FEE and tx.requires_fee(self.wallet):
+        if tx.get_fee() < chainparams.param('MIN_RELAY_TX_FEE') and tx.requires_fee(self.wallet):
             QMessageBox.warning(self, _('Error'), _("This transaction requires a higher fee, or it will not be propagated by the network."), _('OK'))
             return
 
@@ -2600,7 +2600,7 @@ class ElectrumWindow(QMainWindow, PrintError):
               + _('If you enable dynamic fees, this parameter will be used as upper bound.')
         fee_label = HelpLabel(_('Transaction fee per kb') + ':', msg)
         fee_e = BTCkBEdit(self.get_decimal_point)
-        fee_e.setAmount(self.config.get('fee_per_kb', bitcoin.RECOMMENDED_FEE))
+        fee_e.setAmount(self.config.get('fee_per_kb', chainparams.param('RECOMMENDED_FEE')))
         def on_fee(is_done):
             if self.config.get('dynamic_fees'):
                 return

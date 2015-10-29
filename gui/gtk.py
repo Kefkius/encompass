@@ -35,7 +35,7 @@ import platform
 MONOSPACE_FONT = 'Lucida Console' if platform.system() == 'Windows' else 'monospace'
 
 from encompass.util import format_satoshis, parse_URI
-from encompass.bitcoin import MIN_RELAY_TX_FEE
+from encompass.chainparams import param
 
 def numbify(entry, is_int = False):
     text = entry.get_text().strip()
@@ -817,7 +817,7 @@ class ElectrumWindow:
             self.show_message(str(e))
             return
 
-        if tx.requires_fee(self.wallet) and fee < MIN_RELAY_TX_FEE:
+        if tx.requires_fee(self.wallet) and fee < param('MIN_RELAY_TX_FEE'):
             self.show_message( "This transaction requires a higher fee, or it will not be propagated by the network." )
             return
 

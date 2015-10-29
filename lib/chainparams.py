@@ -46,6 +46,12 @@ def set_active_chain(chaincode):
     global active_chain
     active_chain = get_chain_instance(chaincode)
 
+def param(attr, chaincode=None):
+    """Get an attribute of a chain."""
+    if chaincode is None:
+        chain = get_active_chain()
+        return getattr(chain, attr)
+    return getattr(get_chain_instance(chaincode), attr)
 
 def get_chain_instance(chaincode):
     chain = known_chain_dict.get(chaincode)

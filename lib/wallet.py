@@ -37,6 +37,7 @@ from plugins import run_hook
 import bitcoin
 from synchronizer import Synchronizer
 from mnemonic import Mnemonic
+import chainparams
 
 import paymentrequest
 
@@ -589,7 +590,7 @@ class Abstract_Wallet(PrintError):
         received, sent = self.get_addr_io(address)
         c = u = x = 0
         for txo, (tx_height, v, is_cb) in received.items():
-            if is_cb and tx_height + COINBASE_MATURITY > self.get_local_height():
+            if is_cb and tx_height + chainparams.param('COINBASE_MATURITY') > self.get_local_height():
                 x += v
             elif tx_height > 0:
                 c += v
@@ -613,7 +614,7 @@ class Abstract_Wallet(PrintError):
             c = self.get_addr_utxo(addr)
             for txo, v in c.items():
                 tx_height, value, is_cb = v
-                if is_cb and tx_height + COINBASE_MATURITY > self.get_local_height():
+                if is_cb and tx_height + chainparams.param('COINBASE_MATURITY') > self.get_local_height():
                     continue
                 prevout_hash, prevout_n = txo.split(':')
                 output = {
@@ -875,7 +876,7 @@ class Abstract_Wallet(PrintError):
     def fee_per_kb(self, config):
         b = config.get('dynamic_fees')
         f = config.get('fee_factor', 50)
-        F = config.get('fee_per_kb', bitcoin.RECOMMENDED_FEE)
+        F = config.get('fee_per_kb', chainparams.param('RECOMMENDED_FEE'))
         return min(F, self.network.fee*(50 + f)/100) if b and self.network and self.network.fee else F
 
     def get_tx_fee(self, tx):
@@ -886,8 +887,8 @@ class Abstract_Wallet(PrintError):
     def estimated_fee(self, tx, fee_per_kb):
         estimated_size = len(tx.serialize(-1))/2
         fee = int(fee_per_kb * estimated_size / 1000.)
-        if fee < MIN_RELAY_TX_FEE: # and tx.requires_fee(self):
-            fee = MIN_RELAY_TX_FEE
+        if fee < chainparams.param('MIN_RELAY_TX_FEE'): # and tx.requires_fee(self):
+            fee = chainparams.param('MIN_RELAY_TX_FEE')
         return fee
 
     def make_unsigned_transaction(self, coins, outputs, config, fixed_fee=None, change_addr=None):
@@ -960,7 +961,7 @@ class Abstract_Wallet(PrintError):
         change_amount = total - ( amount + fee )
         if fixed_fee is not None and change_amount > 0:
             tx.outputs.append(('address', change_addr, change_amount))
-        elif change_amount > DUST_THRESHOLD:
+        elif change_amount > chainparams.param('DUST_THRESHOLD'):
             tx.outputs.append(('address', change_addr, change_amount))
             # recompute fee including change output
             fee = self.estimated_fee(tx, fee_per_kb)
@@ -968,7 +969,7 @@ class Abstract_Wallet(PrintError):
             tx.outputs.pop()
             # if change is still above dust threshold, re-add change output.
             change_amount = total - ( amount + fee )
-            if change_amount > DUST_THRESHOLD:
+            if change_amount > chainparams.param('DUST_THRESHOLD'):
                 tx.outputs.append(('address', change_addr, change_amount))
                 self.print_error('change', change_amount)
             else:
