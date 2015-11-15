@@ -36,7 +36,7 @@ import icons_rc
 from encompass.bitcoin import COIN, is_valid
 from encompass.plugins import run_hook
 from encompass.i18n import _
-from encompass.util import block_explorer, block_explorer_info, block_explorer_URL
+from encompass.util_coin import block_explorer, block_explorer_info, block_explorer_URL
 from encompass.util import format_satoshis, format_satoshis_plain, format_time
 from encompass.util import PrintError, NotEnoughFunds, StoreDict
 from encompass import Transaction
@@ -45,6 +45,7 @@ from encompass import util, bitcoin, commands, Wallet
 from encompass import SimpleConfig, Wallet, WalletStorage
 from encompass import Imported_Wallet
 from encompass import paymentrequest
+from encompass import chainparams
 
 from amountedit import BTCAmountEdit, MyLineEdit, BTCkBEdit
 from network_dialog import NetworkDialog
@@ -2714,7 +2715,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         unit_combo.currentIndexChanged.connect(on_unit)
         gui_widgets.append((unit_label, unit_combo))
 
-        block_explorers = sorted(block_explorer_info.keys())
+        block_explorers = sorted(block_explorer_info().keys())
         msg = _('Choose which online block explorer to use for functions that open a web browser')
         block_ex_label = HelpLabel(_('Online Block Explorer') + ':', msg)
         block_ex_combo = QComboBox()

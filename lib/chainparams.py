@@ -37,6 +37,7 @@ def init_chains():
 
     known_chain_dict = dict((i.code, i) for i in known_chains)
     known_chain_codes = [i.code for i in known_chains]
+    set_active_chain('BTC')
 
 def get_active_chain():
     global active_chain

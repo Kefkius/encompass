@@ -21,7 +21,8 @@ import webbrowser
 
 from util import *
 from encompass.i18n import _
-from encompass.util import block_explorer_URL, format_satoshis, format_time
+from encompass.util_coin import block_explorer_URL
+from encompass.util import format_satoshis, format_time
 from encompass.plugins import run_hook
 
 

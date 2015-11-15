@@ -27,7 +27,9 @@ class Bitcoin(CryptoCur):
     COINBASE_MATURITY = 100
 
     block_explorers = [
-        BlockExplorer('Insight.is', 'https://insight.bitpay.com',
+        ('Insight.is', 'https://insight.bitpay.com',
+                    {'tx': '/tx/%', 'addr': '/address/%'}),
+        ('Blockchain.info', 'https://blockchain.info',
                     {'tx': '/tx/%', 'addr': '/address/%'})
     ]
 

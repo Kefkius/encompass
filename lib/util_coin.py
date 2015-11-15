@@ -2,6 +2,8 @@
 import hashlib
 from collections import namedtuple
 
+import chainparams
+
 COIN = 100000000
 
 def sha256(x):
@@ -72,7 +74,6 @@ def target_to_bits(target):
     new_bits = c + MM * i
     return new_bits
 
-BlockExplorer = namedtuple('BlockExplorer', ('name', 'base_url', 'routes'))
 class BlockExplorer(object):
     """Block explorer.
 
@@ -97,5 +98,28 @@ class BlockExplorer(object):
         """
         if not self.routes.get(kind): return
         route = self.routes[kind].replace('%', item)
-        url = ''.join(self.base_url, route)
+        url = ''.join([self.base_url, route])
         return url
+
+    def serialize(self):
+        return (self.name, self.base_url, self.routes)
+
+def block_explorer(config):
+    options = config.get_above_chain(config.get_active_chain_code())
+    name = options.get('block_explorer', chainparams.param('block_explorers')[0][0])
+    return name
+
+def block_explorer_info():
+    explorers = [BlockExplorer(*i) for i in chainparams.param('block_explorers')]
+    return dict((i.name, i) for i in explorers)
+
+def block_explorer_instance(config):
+    return block_explorer_info().get(block_explorer(config))
+
+def block_explorer_URL(config, kind, item):
+    be = block_explorer_instance(config)
+    if not be:
+        return
+
+    return be.get_url(kind, item)
+
