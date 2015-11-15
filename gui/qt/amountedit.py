@@ -5,6 +5,7 @@ from PyQt4.QtGui import *
 
 from decimal import Decimal
 from encompass.util import format_satoshis_plain
+from encompass import chainparams
 
 class MyLineEdit(QLineEdit):
     frozen = pyqtSignal()
@@ -76,13 +77,9 @@ class BTCAmountEdit(AmountEdit):
 
     def _base_unit(self):
         p = self.decimal_point()
-        assert p in [2, 5, 8]
-        if p == 8:
-            return 'BTC'
-        if p == 5:
-            return 'mBTC'
-        if p == 2:
-            return 'bits'
+        for k, v in chainparams.param('base_units').items():
+            if v == p:
+                return k
         raise Exception('Unknown base unit')
 
     def get_amount(self):

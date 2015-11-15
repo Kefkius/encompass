@@ -124,7 +124,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.create_status_bar()
         self.need_update = threading.Event()
 
-        self.decimal_point = config.get('decimal_point', 5)
+        self.decimal_point = config.get('decimal_point', 8)
         self.num_zeros     = int(config.get('num_zeros',0))
 
         self.completions = QStringListModel()
@@ -500,13 +500,10 @@ class ElectrumWindow(QMainWindow, PrintError):
         return self.decimal_point
 
     def base_unit(self):
-        assert self.decimal_point in [2, 5, 8]
-        if self.decimal_point == 2:
-            return 'bits'
-        if self.decimal_point == 5:
-            return 'mBTC'
-        if self.decimal_point == 8:
-            return 'BTC'
+        units = chainparams.param('base_units')
+        for k, v in units.items():
+            if v == self.decimal_point:
+                return k
         raise Exception('Unknown base unit')
 
     def update_status(self):
@@ -2686,9 +2683,9 @@ class ElectrumWindow(QMainWindow, PrintError):
         SSL_id_e.setReadOnly(True)
         id_widgets.append((SSL_id_label, SSL_id_e))
 
-        units = ['BTC', 'mBTC', 'bits']
+        units = chainparams.param('base_units').keys()
         msg = _('Base unit of your wallet.')\
-              + '\n1BTC=1000mBTC.\n' \
+              + '\n' \
               + _(' These settings affects the fields in the Send tab')+' '
         unit_label = HelpLabel(_('Base unit') + ':', msg)
         unit_combo = QComboBox()
@@ -2698,14 +2695,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             unit_result = units[unit_combo.currentIndex()]
             if self.base_unit() == unit_result:
                 return
-            if unit_result == 'BTC':
-                self.decimal_point = 8
-            elif unit_result == 'mBTC':
-                self.decimal_point = 5
-            elif unit_result == 'bits':
-                self.decimal_point = 2
-            else:
-                raise Exception('Unknown base unit')
+            self.decimal_point = chainparams.param('base_units')[unit_result]
             self.config.set_key('decimal_point', self.decimal_point, True)
             self.history_list.update()
             self.receive_list.update()
