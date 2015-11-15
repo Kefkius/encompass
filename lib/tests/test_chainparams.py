@@ -24,3 +24,18 @@ class TestChainparams(unittest.TestCase):
     def test_is_known_chain(self):
         self.assertTrue(chainparams.is_known_chain('BTC'))
         self.assertFalse(chainparams.is_known_chain('EncompassTestCode'))
+
+    def test_subscribe_to_changes(self):
+        test_list = []
+        def on_active_chain_changed(new_chain):
+            test_list.append(new_chain.code)
+        self.assertTrue(chainparams.subscribe(on_active_chain_changed))
+        # Change the active chain
+        chainparams.set_active_chain('BTC')
+        self.assertEqual(len(test_list), 1)
+        self.assertEqual('BTC', test_list[0])
+
+        chainparams.unsubscribe(on_active_chain_changed)
+        chainparams.set_active_chain('BTC')
+        self.assertEqual(len(test_list), 1)
+        self.assertEqual('BTC', test_list[0])

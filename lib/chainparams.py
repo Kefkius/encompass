@@ -23,6 +23,9 @@ known_chains = []
 known_chain_dict = {}
 known_chain_codes = []
 
+subscriptions = []
+"""Callbacks for when the active chain changes."""
+
 def init_chains():
     global known_chains, known_chain_dict, known_chain_codes
 
@@ -46,6 +49,11 @@ def get_active_chain():
 def set_active_chain(chaincode):
     global active_chain
     active_chain = get_chain_instance(chaincode)
+    for func in subscriptions:
+        try:
+            func(active_chain)
+        except Exception:
+            pass
 
 def param(attr, chaincode=None):
     """Get an attribute of a chain."""
@@ -62,3 +70,23 @@ def get_chain_instance(chaincode):
 
 def is_known_chain(chaincode):
     return chaincode in known_chain_codes
+
+def subscribe(callback):
+    """Subscribe to changes of the active chain.
+
+    Args:
+        callback (function): Function that accepts the new
+        active chain as an argument.
+
+    Returns:
+        Whether or not the subscription was successful.
+    """
+    if hasattr(callback, '__call__'):
+        subscriptions.append(callback)
+        return True
+    return False
+
+def unsubscribe(callback):
+    """Unsubscribe to changes of the active chain."""
+    if callback in subscriptions:
+        subscriptions.remove(callback)
