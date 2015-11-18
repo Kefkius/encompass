@@ -3,6 +3,7 @@ import hashlib
 from collections import namedtuple
 
 import chainparams
+from chains import cryptocur
 
 COIN = 100000000
 
@@ -14,65 +15,16 @@ def Hash(x):
     if type(x) is unicode: x=x.encode('utf-8')
     return hashlib.sha256( hashlib.sha256(x).digest() ).digest()
 
-def rev_hex(s):
-    """Reverses the bytes of a hex string."""
-    return s.decode('hex')[::-1].encode('hex')
 
-def int_to_hex(i, length=1):
-    """Encodes an integer as a little-endian hex string of the given length."""
-    s = hex(i)[2:].rstrip('L')
-    s = "0"*(2*length - len(s)) + s
-    return rev_hex(s)
+hash_encode = lambda x: cryptocur.hash_encode(x)
+hash_decode = lambda x: cryptocur.hash_decode(x)
+rev_hex = lambda s: cryptocur.rev_hex(s)
+int_to_hex = lambda i, length=1: cryptocur.int_to_hex(i, length)
+var_int = lambda i: cryptocur.var_int(i)
+op_push = lambda i: cryptocur.op_push(i)
+bits_to_target = lambda bits: cryptocur.bits_to_target(bits)
+target_to_bits = lambda target: cryptocur.target_to_bits(target)
 
-def var_int(i):
-    # https://en.bitcoin.it/wiki/Protocol_specification#Variable_length_integer
-    if i<0xfd:
-        return int_to_hex(i)
-    elif i<=0xffff:
-        return "fd"+int_to_hex(i,2)
-    elif i<=0xffffffff:
-        return "fe"+int_to_hex(i,4)
-    else:
-        return "ff"+int_to_hex(i,8)
-
-def op_push(i):
-    if i<0x4c:
-        return int_to_hex(i)
-    elif i<0xff:
-        return '4c' + int_to_hex(i)
-    elif i<0xffff:
-        return '4d' + int_to_hex(i,2)
-    else:
-        return '4e' + int_to_hex(i,4)
-
-hash_encode = lambda x: x[::-1].encode('hex')
-hash_decode = lambda x: x.decode('hex')[::-1]
-
-def bits_to_target(bits):
-    """Convert a compact representation to a hex target."""
-    MM = 256*256*256
-    a = bits%MM
-    if a < 0x8000:
-        a *= 256
-    target = (a) * pow(2, 8 * (bits/MM - 3))
-    return target
-
-def target_to_bits(target):
-    """Convert a target to compact representation."""
-    MM = 256*256*256
-    c = ("%064X"%target)[2:]
-    i = 31
-    while c[0:2]=="00":
-        c = c[2:]
-        i -= 1
-
-    c = int('0x'+c[0:6],16)
-    if c >= 0x800000:
-        c /= 256
-        i += 1
-
-    new_bits = c + MM * i
-    return new_bits
 
 class BlockExplorer(object):
     """Block explorer.

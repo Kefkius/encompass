@@ -7,9 +7,6 @@ from coinhash import SHA256dHash
 def get_class():
     return Bitcoin
 
-
-DEFAULT_PORTS = {'t':'50001', 's':'50002', 'h':'8081', 'g':'8082'}
-
 class Bitcoin(CryptoCur):
     PoW = True
     chain_index = 0
@@ -41,6 +38,8 @@ class Bitcoin(CryptoCur):
 
     headers_url = 'http://headers.electrum.org/blockchain_headers'
 
+    DEFAULT_PORTS = {'t':'50001', 's':'50002', 'h':'8081', 'g':'8082'}
+
     DEFAULT_SERVERS = {
         'electrum.be':{'t':'50001', 's':'50002'},
         'electrum.drollette.com':{'t':'50001', 's':'50002'},
@@ -55,5 +54,51 @@ class Bitcoin(CryptoCur):
         'us.electrum.be':{'t':'50001', 's':'50002'},
     }
 
+
+    def get_target(self, height, chain=None):
+        if chain is None:
+            chain = []  # Do not use mutables as default values!
+        index = height/2016
+
+        max_target = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+        if index == 0: return 0x1d00ffff, max_target
+
+        first = self.read_header((index-1)*2016)
+        last = self.read_header(index*2016-1)
+        if last is None:
+            for h in chain:
+                if h.get('block_height') == index*2016-1:
+                    last = h
+
+        nActualTimespan = last.get('timestamp') - first.get('timestamp')
+        nTargetTimespan = 14*24*60*60
+        nActualTimespan = max(nActualTimespan, nTargetTimespan/4)
+        nActualTimespan = min(nActualTimespan, nTargetTimespan*4)
+
+        bits = last.get('bits')
+        # convert to bignum
+        MM = 256*256*256
+        a = bits%MM
+        if a < 0x8000:
+            a *= 256
+        target = (a) * pow(2, 8 * (bits/MM - 3))
+
+        # new target
+        new_target = min( max_target, (target * nActualTimespan)/nTargetTimespan )
+
+        # convert it to bits
+        c = ("%064X"%new_target)[2:]
+        i = 31
+        while c[0:2]=="00":
+            c = c[2:]
+            i -= 1
+
+        c = int('0x'+c[0:6],16)
+        if c >= 0x800000:
+            c /= 256
+            i += 1
+
+        new_bits = c + MM * i
+        return new_bits, new_target
 
 
