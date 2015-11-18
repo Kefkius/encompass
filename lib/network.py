@@ -17,22 +17,8 @@ from bitcoin import *
 from interface import Connection, Interface
 from blockchain import Blockchain
 from version import ELECTRUM_VERSION, PROTOCOL_VERSION
+import chainparams
 
-DEFAULT_PORTS = {'t':'50001', 's':'50002', 'h':'8081', 'g':'8082'}
-
-DEFAULT_SERVERS = {
-    'electrum.be':{'t':'50001', 's':'50002'},
-    'electrum.drollette.com':{'t':'50001', 's':'50002'},
-    'erbium1.sytes.net':{'t':'50001', 's':'50002'},
-    'ecdsa.net':{'t':'50001', 's':'110'},
-    'electrum0.electricnewyear.net':{'t':'50001', 's':'50002'},
-    'kirsche.emzy.de':DEFAULT_PORTS,
-    'VPS.hsmiths.com':{'t':'50001', 's':'50002'},
-    'ELECTRUM.jdubya.info':{'t':'50001', 's':'50002'},
-    'electrum.no-ip.org':{'t':'50001', 's':'50002', 'g':'443'},
-    'electrum.thwg.org':DEFAULT_PORTS,
-    'us.electrum.be':{'t':'50001', 's':'50002'},
-}
 
 NODES_RETRY_INTERVAL = 60
 SERVER_RETRY_INTERVAL = 10
@@ -51,7 +37,7 @@ def parse_servers(result):
             for v in item[2]:
                 if re.match("[stgh]\d*", v):
                     protocol, port = v[0], v[1:]
-                    if port == '': port = DEFAULT_PORTS[protocol]
+                    if port == '': port = chainparams.param('DEFAULT_PORTS')[protocol]
                     out[protocol] = port
                 elif re.match("v(.?)+", v):
                     version = v[1:]
@@ -69,9 +55,11 @@ def parse_servers(result):
 
     return servers
 
-def filter_protocol(hostmap = DEFAULT_SERVERS, protocol = 's'):
+def filter_protocol(hostmap = None, protocol = 's'):
     '''Filters the hostmap for those implementing protocol.
     The result is a list in serialized form.'''
+    if hostmap is None:
+        hostmap = chainparams.param('DEFAULT_SERVERS')
     eligible = []
     for host, portmap in hostmap.items():
         port = portmap.get(protocol)
@@ -79,7 +67,9 @@ def filter_protocol(hostmap = DEFAULT_SERVERS, protocol = 's'):
             eligible.append(serialize_server(host, port, protocol))
     return eligible
 
-def pick_random_server(hostmap = DEFAULT_SERVERS, protocol = 's', exclude_set = set()):
+def pick_random_server(hostmap = None, protocol = 's', exclude_set = set()):
+    if hostmap is None:
+        hostmap = chainparams.param('DEFAULT_SERVERS')
     eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
     return random.choice(eligible) if eligible else None
 
@@ -312,7 +302,7 @@ class Network(util.DaemonThread):
         if self.irc_servers:
             out = self.irc_servers
         else:
-            out = DEFAULT_SERVERS
+            out = chainparams.param('DEFAULT_SERVERS')
             for s in self.recent_servers:
                 try:
                     host, port, protocol = deserialize_server(s)

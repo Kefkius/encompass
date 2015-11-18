@@ -19,11 +19,11 @@
 import sys, time, datetime, re, threading
 from encompass.i18n import _
 from encompass.util import print_error, print_msg
+from encompass import chainparams
 import os.path, json, ast, traceback
 
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
-from encompass import DEFAULT_PORTS
 
 from util import *
 
@@ -184,7 +184,7 @@ class NetworkDialog(QDialog):
     def change_protocol(self, use_ssl):
         p = 's' if use_ssl else 't'
         host = unicode(self.server_host.text())
-        pp = self.servers.get(host, DEFAULT_PORTS)
+        pp = self.servers.get(host, chainparams.param('DEFAULT_PORTS'))
         if p not in pp.keys():
             p = pp.keys()[0]
         port = pp[p]
@@ -198,7 +198,7 @@ class NetworkDialog(QDialog):
 
     def change_server(self, host, protocol):
 
-        pp = self.servers.get(host, DEFAULT_PORTS)
+        pp = self.servers.get(host, chainparams.param('DEFAULT_PORTS'))
         if protocol and protocol not in protocol_letters:
                 protocol = None
         if protocol:
