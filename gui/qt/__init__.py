@@ -63,7 +63,7 @@ class OpenFileEventFilter(QObject):
 class ElectrumGui:
 
     def __init__(self, config, network, plugins):
-        set_language(config.get('language'))
+        set_language(config.get_above_chain('language'))
         self.network = network
         self.config = config
         self.plugins = plugins
@@ -76,7 +76,7 @@ class ElectrumGui:
         self.invoices = InvoiceStore(self.config)
         self.contacts = Contacts(self.config)
         # init tray
-        self.dark_icon = self.config.get("dark_icon", False)
+        self.dark_icon = self.config.get_above_chain("dark_icon", False)
         self.tray = QSystemTrayIcon(self.tray_icon(), None)
         self.tray.setToolTip('Encompass')
         self.tray.activated.connect(self.tray_activated)
@@ -105,7 +105,7 @@ class ElectrumGui:
 
     def toggle_tray_icon(self):
         self.dark_icon = not self.dark_icon
-        self.config.set_key("dark_icon", self.dark_icon, True)
+        self.config.set_key_above_chain("dark_icon", self.dark_icon, True)
         self.tray.setIcon(self.tray_icon())
 
     def tray_activated(self, reason):
@@ -128,10 +128,10 @@ class ElectrumGui:
             QMessageBox.information(None, _('Error'), str(e), _('OK'))
             return
         if not storage.file_exists:
-            recent = self.config.get('recently_open', [])
+            recent = self.config.get_above_chain('recently_open', [])
             if filename in recent:
                 recent.remove(filename)
-                self.config.set_key('recently_open', recent)
+                self.config.set_key_above_chain('recently_open', recent)
             action = 'new'
         else:
             try:
@@ -198,12 +198,12 @@ class ElectrumGui:
             # load new wallet in gui
             w.load_wallet(wallet)
             # save path
-            if self.config.get('wallet_path') is None:
-                self.config.set_key('gui_last_wallet', path)
+            if self.config.get_above_chain('wallet_path') is None:
+                self.config.set_key_above_chain('gui_last_wallet', path)
             # add to recently visited
             w.update_recently_visited(path)
             # initial configuration
-            if self.config.get('hide_gui') is True and self.tray.isVisible():
+            if self.config.get_above_chain('hide_gui') is True and self.tray.isVisible():
                 w.hide()
             else:
                 w.show()
@@ -224,8 +224,8 @@ class ElectrumGui:
     def main(self):
         self.timer.start()
 
-        last_wallet = self.config.get('gui_last_wallet')
-        if last_wallet is not None and self.config.get('wallet_path') is None:
+        last_wallet = self.config.get_above_chain('gui_last_wallet')
+        if last_wallet is not None and self.config.get_above_chain('wallet_path') is None:
             if os.path.exists(last_wallet):
                 self.config.cmdline_options['default_wallet_path'] = last_wallet
 

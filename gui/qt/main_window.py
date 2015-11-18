@@ -141,11 +141,11 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.setCentralWidget(tabs)
 
         try:
-            self.setGeometry(*self.config.get("winpos-qt"))
+            self.setGeometry(*self.config.get_above_chain("winpos-qt"))
         except:
             self.setGeometry(100, 100, 840, 400)
 
-        if self.config.get("is_maximized"):
+        if self.config.get_above_chain("is_maximized"):
             self.showMaximized()
 
         self.setWindowIcon(QIcon(":icons/encompass.png"))
@@ -330,13 +330,13 @@ class ElectrumWindow(QMainWindow, PrintError):
 
 
     def update_recently_visited(self, filename=None):
-        recent = self.config.get('recently_open', [])
+        recent = self.config.get_above_chain('recently_open', [])
         if filename:
             if filename in recent:
                 recent.remove(filename)
             recent.insert(0, filename)
             recent = recent[:5]
-            self.config.set_key('recently_open', recent)
+            self.config.set_key_above_chain('recently_open', recent)
         self.recently_visited_menu.clear()
         for i, k in enumerate(sorted(recent)):
             b = os.path.basename(k)
@@ -887,10 +887,10 @@ class ElectrumWindow(QMainWindow, PrintError):
             self.qr_window.set_content(addr, amount, message, uri)
 
     def show_before_broadcast(self):
-        return self.config.get('show_before_broadcast', False)
+        return self.config.get_above_chain('show_before_broadcast', False)
 
     def set_show_before_broadcast(self, show):
-        self.config.set_key('show_before_broadcast', bool(show))
+        self.config.set_key_above_chain('show_before_broadcast', bool(show))
         self.set_send_button_text()
 
     def set_send_button_text(self):
@@ -1767,7 +1767,7 @@ class ElectrumWindow(QMainWindow, PrintError):
 
     def update_console(self):
         console = self.console
-        console.history = self.config.get("console-history",[])
+        console.history = self.config.get_above_chain("console-history",[])
         console.history_index = len(console.history)
 
         console.updateNamespace({'wallet' : self.wallet,
@@ -2562,7 +2562,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         from encompass.i18n import languages
         lang_combo.addItems(languages.values())
         try:
-            index = languages.keys().index(self.config.get("language",''))
+            index = languages.keys().index(self.config.get_above_chain("language",''))
         except Exception:
             index = 0
         lang_combo.setCurrentIndex(index)
@@ -2570,8 +2570,8 @@ class ElectrumWindow(QMainWindow, PrintError):
             for w in [lang_combo, lang_label]: w.setEnabled(False)
         def on_lang(x):
             lang_request = languages.keys()[lang_combo.currentIndex()]
-            if lang_request != self.config.get('language'):
-                self.config.set_key("language", lang_request, True)
+            if lang_request != self.config.get_above_chain('language'):
+                self.config.set_key_above_chain("language", lang_request, True)
                 self.need_restart = True
         lang_combo.currentIndexChanged.connect(on_lang)
         gui_widgets.append((lang_label, lang_combo))
@@ -2724,12 +2724,12 @@ class ElectrumWindow(QMainWindow, PrintError):
         for camera, device in system_cameras.items():
             qr_combo.addItem(camera, device)
         #combo.addItem("Manually specify a device", config.get("video_device"))
-        index = qr_combo.findData(self.config.get("video_device"))
+        index = qr_combo.findData(self.config.get_above_chain("video_device"))
         qr_combo.setCurrentIndex(index)
         msg = _("Install the zbar package to enable this.\nOn linux, type: 'apt-get install python-zbar'")
         qr_label = HelpLabel(_('Video Device') + ':', msg)
         qr_combo.setEnabled(qrscanner.zbar is not None)
-        on_video_device = lambda x: self.config.set_key("video_device", str(qr_combo.itemData(x).toString()), True)
+        on_video_device = lambda x: self.config.set_key_above_chain("video_device", str(qr_combo.itemData(x).toString()), True)
         qr_combo.currentIndexChanged.connect(on_video_device)
         gui_widgets.append((qr_label, qr_combo))
 
@@ -2800,11 +2800,11 @@ class ElectrumWindow(QMainWindow, PrintError):
         NetworkDialog(self.wallet.network, self.config, self).do_exec()
 
     def closeEvent(self, event):
-        self.config.set_key("is_maximized", self.isMaximized())
+        self.config.set_key_above_chain("is_maximized", self.isMaximized())
         if not self.isMaximized():
             g = self.geometry()
-            self.config.set_key("winpos-qt", [g.left(),g.top(),g.width(),g.height()])
-        self.config.set_key("console-history", self.console.history[-50:], True)
+            self.config.set_key_above_chain("winpos-qt", [g.left(),g.top(),g.width(),g.height()])
+        self.config.set_key_above_chain("console-history", self.console.history[-50:], True)
         if self.qr_window:
             self.qr_window.close()
         self.close_wallet()

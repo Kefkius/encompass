@@ -502,7 +502,7 @@ class InstallWizard(QDialog):
             util.print_error("installwizard:", wallet, action)
 
             if action == 'create_seed':
-                lang = self.config.get('language')
+                lang = self.config.get_above_chain('language')
                 seed = wallet.make_seed(lang)
                 if not self.show_seed(seed, None):
                     return

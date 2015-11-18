@@ -49,7 +49,7 @@ class Plugins(PrintError):
             x = item.get('registers_wallet_type')
             if x:
                 self.register_wallet_type(config, name, x)
-            if config.get('use_' + name):
+            if config.get_above_chain('use_' + name):
                 self.load_plugin(config, name)
 
     def get(self, name):
@@ -86,7 +86,7 @@ class Plugins(PrintError):
 
     def toggle_enabled(self, config, name):
         p = self.get(name)
-        config.set_key('use_' + name, p is None, True)
+        config.set_key_above_chain('use_' + name, p is None, True)
         if p:
             self.plugins.pop(name)
             p.close()
@@ -220,7 +220,7 @@ class BasePlugin(PrintError):
     def close_wallet(self): pass
 
     def is_enabled(self):
-        return self.is_available() and self.config.get('use_'+self.name) is True
+        return self.is_available() and self.config.get_above_chain('use_'+self.name) is True
 
     def is_available(self):
         return True
