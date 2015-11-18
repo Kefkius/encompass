@@ -479,7 +479,7 @@ class InstallWizard(QDialog):
             elif wallet_type == 'twofactor':
                 wallet_type = '2fa'
             if action == 'create':
-                self.storage.put('wallet_type', wallet_type, False)
+                self.storage.put_above_chain('wallet_type', wallet_type, False)
 
         if action is None:
             return
@@ -593,7 +593,7 @@ class InstallWizard(QDialog):
                 wallet = Wallet.from_multisig(key_list, password, self.storage, t)
 
             else:
-                self.storage.put('wallet_type', t, False)
+                self.storage.put_above_chain('wallet_type', t, False)
                 # call the constructor to load the plugin (side effect)
                 Wallet(self.storage)
                 wallet = always_hook('installwizard_restore', self, self.storage)

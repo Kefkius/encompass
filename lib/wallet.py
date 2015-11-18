@@ -89,7 +89,7 @@ class WalletStorage(PrintError):
                 self.data[key] = value
         self.file_exists = True
 
-    def get(self, key, default=None):
+    def get_above_chain(self, key, default=None):
         with self.lock:
             v = self.data.get(key)
             if v is None:
@@ -98,7 +98,7 @@ class WalletStorage(PrintError):
                 v = copy.deepcopy(v)
         return v
 
-    def put(self, key, value, save = True):
+    def put_above_chain(self, key, value, save = True):
         try:
             json.dumps(key)
             json.dumps(value)
@@ -113,6 +113,42 @@ class WalletStorage(PrintError):
             elif key in self.data:
                 self.modified = True
                 self.data.pop(key)
+            if save:
+                self.write()
+
+    def ensure_chain_section(self, chaincode):
+        data = self.get_above_chain(chaincode)
+        if data is None:
+            self.put_above_chain(chaincode, {})
+
+    def get(self, key, default=None):
+        chaincode = self.get_above_chain('active_chain', 'BTC')
+        self.ensure_chain_section(chaincode)
+        with self.lock:
+            v = self.data[chaincode].get(key)
+            if v is None:
+                v = default
+            else:
+                v = copy.deepcopy(v)
+            return v
+
+    def put(self, key, value, save = True):
+        try:
+            json.dumps(key)
+            json.dumps(value)
+        except Exception:
+            self.print_error('json error: cannot save', key)
+            return
+        chaincode = self.get_above_chain('active_chain', 'BTC')
+        self.ensure_chain_section(chaincode)
+        with self.lock:
+            if value is not None:
+                if self.data[chaincode].get(key) != value:
+                    self.modified = True
+                    self.data[chaincode][key] = copy.deepcopy(value)
+            elif key in self.data[chaincode]:
+                self.modified = True
+                self.data[chaincode].pop(key)
             if save:
                 self.write()
 
@@ -150,10 +186,10 @@ class Abstract_Wallet(PrintError):
         self.electrum_version = ELECTRUM_VERSION
         self.gap_limit_for_change = 6 # constant
         # saved fields
-        self.seed_version          = storage.get('seed_version', NEW_SEED_VERSION)
+        self.seed_version          = storage.get_above_chain('seed_version', NEW_SEED_VERSION)
         self.use_change            = storage.get('use_change',True)
-        self.use_encryption        = storage.get('use_encryption', False)
-        self.seed                  = storage.get('seed', '')               # encrypted
+        self.use_encryption        = storage.get_above_chain('use_encryption', False)
+        self.seed                  = storage.get_above_chain('seed', '')               # encrypted
         self.labels                = storage.get('labels', {})
         self.frozen_addresses      = set(storage.get('frozen_addresses',[]))
         self.stored_height         = storage.get('stored_height', 0)       # last known height (for offline mode)
@@ -191,8 +227,8 @@ class Abstract_Wallet(PrintError):
         self.check_history()
 
         # save wallet type the first time
-        if self.storage.get('wallet_type') is None:
-            self.storage.put('wallet_type', self.wallet_type, True)
+        if self.storage.get_above_chain('wallet_type') is None:
+            self.storage.put_above_chain('wallet_type', self.wallet_type, True)
 
     def diagnostic_name(self):
         return self.basename()
@@ -1065,7 +1101,7 @@ class Abstract_Wallet(PrintError):
         if self.has_seed():
             decoded = self.get_seed(old_password)
             self.seed = pw_encode( decoded, new_password)
-            self.storage.put('seed', self.seed, True)
+            self.storage.put_above_chain('seed', self.seed, True)
 
         imported_account = self.accounts.get(IMPORTED_ACCOUNT)
         if imported_account:
@@ -1080,7 +1116,7 @@ class Abstract_Wallet(PrintError):
             self.storage.put('master_private_keys', self.master_private_keys, True)
 
         self.use_encryption = (new_password != None)
-        self.storage.put('use_encryption', self.use_encryption,True)
+        self.storage.put_above_chain('use_encryption', self.use_encryption,True)
 
     def is_frozen(self, addr):
         return addr in self.frozen_addresses
@@ -1424,9 +1460,9 @@ class Deterministic_Wallet(Abstract_Wallet):
         else:
             self.use_encryption = False
 
-        self.storage.put('seed', self.seed, False)
-        self.storage.put('seed_version', self.seed_version, False)
-        self.storage.put('use_encryption', self.use_encryption,True)
+        self.storage.put_above_chain('seed', self.seed, False)
+        self.storage.put_above_chain('seed_version', self.seed_version, False)
+        self.storage.put_above_chain('use_encryption', self.use_encryption,True)
 
     def get_seed(self, password):
         return pw_decode(self.seed, password)
@@ -1645,16 +1681,16 @@ class BIP32_Simple_Wallet(BIP32_Wallet):
     def create_xprv_wallet(self, xprv, password):
         xpub = bitcoin.xpub_from_xprv(xprv)
         account = BIP32_Account({'xpub':xpub})
-        self.storage.put('seed_version', self.seed_version, True)
+        self.storage.put_above_chain('seed_version', self.seed_version, True)
         self.add_master_private_key(self.root_name, xprv, password)
         self.add_master_public_key(self.root_name, xpub)
         self.add_account('0', account)
         self.use_encryption = (password != None)
-        self.storage.put('use_encryption', self.use_encryption,True)
+        self.storage.put_above_chain('use_encryption', self.use_encryption,True)
 
     def create_xpub_wallet(self, xpub):
         account = BIP32_Account({'xpub':xpub})
-        self.storage.put('seed_version', self.seed_version, True)
+        self.storage.put_above_chain('seed_version', self.seed_version, True)
         self.add_master_public_key(self.root_name, xpub)
         self.add_account('0', account)
 
@@ -1787,7 +1823,7 @@ class Multisig_Wallet(BIP32_Wallet, Mnemonic):
 
     def __init__(self, storage):
         BIP32_Wallet.__init__(self, storage)
-        self.wallet_type = storage.get('wallet_type')
+        self.wallet_type = storage.get_above_chain('wallet_type')
         m = re.match('(\d+)of(\d+)', self.wallet_type)
         self.m = int(m.group(1))
         self.n = int(m.group(2))
@@ -1871,7 +1907,7 @@ class OldWallet(Deterministic_Wallet):
 
     def create_watching_only_wallet(self, mpk):
         self.seed_version = OLD_SEED_VERSION
-        self.storage.put('seed_version', self.seed_version, False)
+        self.storage.put_above_chain('seed_version', self.seed_version, False)
         self.storage.put('master_public_key', mpk, True)
         self.create_account(mpk)
 
@@ -1909,7 +1945,7 @@ class Wallet(object):
 
     def __new__(self, storage):
 
-        seed_version = storage.get('seed_version')
+        seed_version = storage.get_above_chain('seed_version')
         if not seed_version:
             seed_version = OLD_SEED_VERSION if len(storage.get('master_public_key','')) == 128 else NEW_SEED_VERSION
 
@@ -1929,7 +1965,7 @@ class Wallet(object):
                     msg += "\nPlease open this file with Electrum 1.9.8, and move your coins to a new wallet."
             raise BaseException(msg)
 
-        wallet_type = storage.get('wallet_type')
+        wallet_type = storage.get_above_chain('wallet_type')
         if wallet_type:
             for cat, t, name, loader in wallet_types:
                 if t == wallet_type:
@@ -2056,7 +2092,7 @@ class Wallet(object):
 
     @classmethod
     def from_multisig(klass, key_list, password, storage, wallet_type):
-        storage.put('wallet_type', wallet_type, True)
+        storage.put_above_chain('wallet_type', wallet_type, True)
         self = Multisig_Wallet(storage)
         key_list = sorted(key_list, key = lambda x: klass.is_xpub(x))
         for i, text in enumerate(key_list):
@@ -2075,6 +2111,6 @@ class Wallet(object):
                 else:
                     self.add_cosigner_seed(text, name, password)
         self.use_encryption = (password != None)
-        self.storage.put('use_encryption', self.use_encryption, True)
+        self.storage.put_above_chain('use_encryption', self.use_encryption, True)
         self.create_main_account(password)
         return self

@@ -230,9 +230,9 @@ def init_cmdline(config):
             if raw_input("Are you sure you want to continue? (y/n) ") in ['y', 'Y', 'yes']:
                 wallet.storage.path = ns
                 wallet.seed = ''
-                wallet.storage.put('seed', '', True)
+                wallet.storage.put_above_chain('seed', '', True)
                 wallet.use_encryption = False
-                wallet.storage.put('use_encryption', wallet.use_encryption, True)
+                wallet.storage.put_above_chain('use_encryption', wallet.use_encryption, True)
                 for k in wallet.imported_keys.keys():
                     wallet.imported_keys[k] = ''
                 wallet.storage.put('imported_keys', wallet.imported_keys, True)
