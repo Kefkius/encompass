@@ -52,6 +52,7 @@ from network_dialog import NetworkDialog
 from qrcodewidget import QRCodeWidget, QRDialog
 from qrtextedit import ScanQRTextEdit, ShowQRTextEdit
 from transaction_dialog import show_transaction
+from currency_dialog import ChangeCurrencyDialog
 
 
 
@@ -162,6 +163,7 @@ class ElectrumWindow(QMainWindow, PrintError):
 
         self.connect(self, QtCore.SIGNAL('payment_request_ok'), self.payment_request_ok)
         self.connect(self, QtCore.SIGNAL('payment_request_error'), self.payment_request_error)
+        self.connect(self, QtCore.SIGNAL('change_currency'), self.change_currency)
         self.labelsChanged.connect(self.update_tabs)
         self.history_list.setFocus(True)
 
@@ -358,6 +360,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.update_recently_visited()
 
         wallet_menu = menubar.addMenu(_("&Wallet"))
+        wallet_menu.addAction(_('&Change currency'), self.change_currency_dialog)
         wallet_menu.addAction(_("&New contact"), self.new_contact_dialog)
         self.new_account_menu = wallet_menu.addAction(_("&New account"), self.new_account_dialog)
 
@@ -2900,3 +2903,25 @@ class ElectrumWindow(QMainWindow, PrintError):
         text.setText(mpk_text)
         vbox.addLayout(Buttons(CloseButton(d)))
         d.exec_()
+
+    def change_currency_dialog(self):
+        if not hasattr(self, 'change_currency_window'):
+            self.change_currency_window = ChangeCurrencyDialog(self)
+            self.change_currency_window.view.activated.connect(self.on_currency_selected)
+
+        if not self.change_currency_window.exec_(): return
+        self.on_currency_selected()
+
+    def on_currency_selected(self):
+        chaincode = self.change_currency_window.selected_chain()
+        self.change_currency_window.hide()
+        self.emit(QtCore.SIGNAL('change_currency'), chaincode)
+
+    def change_currency(self, chaincode):
+        if chaincode == self.config.get_active_chain_code():
+            return
+        elif not chainparams.is_known_chain(chaincode):
+            return
+
+        self.gui_object.change_active_chain(chaincode)
+

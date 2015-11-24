@@ -429,8 +429,32 @@ class InstallWizard(QDialog):
         self.set_layout( make_password_dialog(self, None, msg) )
         return run_password_dialog(self, None, self)[2]
 
+    def enter_password_dialog(self, msg=None):
+        """Dialog for when password is required to unlock something."""
+        parent = self
+        d = QDialog(parent)
+        d.setModal(1)
+        d.setWindowTitle(_("Enter Password"))
+        pw = QLineEdit()
+        pw.setEchoMode(2)
+        vbox = QVBoxLayout()
+        if not msg:
+            msg = _('Please enter your password')
+        vbox.addWidget(QLabel(msg))
+        grid = QGridLayout()
+        grid.setSpacing(8)
+        grid.addWidget(QLabel(_('Password')), 1, 0)
+        grid.addWidget(pw, 1, 1)
+        vbox.addLayout(grid)
+        vbox.addLayout(Buttons(CancelButton(d), OkButton(d)))
+        d.setLayout(vbox)
+        run_hook('password_dialog', pw, grid, 1)
+        if not d.exec_(): return
+        return unicode(pw.text())
+
+
     def run(self, action):
-        if self.storage.file_exists and action != 'new':
+        if self.storage.file_exists and action not in ['new', 'add_chain']:
             path = self.storage.path
             msg = _("The file '%s' contains an incompletely created wallet.\n"
                     "Do you want to complete its creation now?") % path
@@ -510,6 +534,12 @@ class InstallWizard(QDialog):
                     return
                 password = self.password_dialog()
                 wallet.add_seed(seed, password)
+                wallet.create_master_keys(password)
+
+            elif action == 'add_chain':
+                password = None
+                if wallet.use_encryption:
+                    password = self.enter_password_dialog()
                 wallet.create_master_keys(password)
 
             elif action == 'add_cosigners':

@@ -21,6 +21,7 @@ from bitcoin import *
 from i18n import _
 from transaction import Transaction, is_extended_pubkey
 from util import print_msg, InvalidPassword
+import chainparams
 
 
 class Account(object):
@@ -64,7 +65,7 @@ class Account(object):
         return address
 
     def pubkeys_to_address(self, pubkey):
-        return public_key_to_bc_address(pubkey.decode('hex'))
+        return public_key_to_bc_address(pubkey.decode('hex'), chainparams.param('p2pkh_version'))
 
     def has_change(self):
         return True
@@ -388,7 +389,7 @@ class Multisig_Account(BIP32_Account):
 
     def pubkeys_to_address(self, pubkeys):
         redeem_script = Transaction.multisig_script(sorted(pubkeys), self.m)
-        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), 5)
+        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), chainparams.param('p2sh_version'))
         return address
 
     def get_address(self, for_change, n):

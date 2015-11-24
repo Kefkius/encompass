@@ -159,9 +159,9 @@ def hash_160(public_key):
         return md.digest()
 
 
-def public_key_to_bc_address(public_key):
+def public_key_to_bc_address(public_key, addrtype = 0):
     h160 = hash_160(public_key)
-    return hash_160_to_bc_address(h160)
+    return hash_160_to_bc_address(h160, addrtype)
 
 def hash_160_to_bc_address(h160, addrtype = 0):
     vh160 = chr(addrtype) + h160
@@ -303,7 +303,12 @@ def is_valid(addr):
     return is_address(addr)
 
 
-def is_address(addr):
+def is_address(addr, versions=None):
+    """Check whether addr is valid.
+
+    Optional args:
+        versions (sequence): Acceptable version bytes addr may have.
+    """
     ADDRESS_RE = re.compile('[1-9A-HJ-NP-Za-km-z]{26,}\\Z')
     if not ADDRESS_RE.match(addr):
         return False
@@ -311,7 +316,7 @@ def is_address(addr):
         addrtype, h = bc_address_to_hash_160(addr)
     except Exception:
         return False
-    if addrtype not in [0, 5]:
+    if versions and addrtype not in versions:
         return False
     return addr == hash_160_to_bc_address(h, addrtype)
 

@@ -478,6 +478,8 @@ if __name__ == '__main__':
         config.set_active_chain_code('BTC')
     if not chainparams.is_known_chain(config.get_active_chain_code()):
         config.set_active_chain_code('BTC')
+    else:
+        chainparams.set_active_chain(config.get_active_chain_code())
     # initialize plugins.
     gui_name = config.get('gui', 'qt') if cmd_name == 'gui' else 'cmdline'
     plugins = Plugins(config, is_bundle or is_local or is_android, gui_name)

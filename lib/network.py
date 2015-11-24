@@ -184,6 +184,63 @@ class Network(util.DaemonThread):
         if self.plugins:
             self.plugins.set_network(self)
 
+    def change_active_chain(self, chaincode=None):
+        self.stop_network()
+        if self.interface:
+            self.close_interface(self.interface)
+        if self.plugins:
+            self.plugins.set_network(None)
+
+        if chaincode is None:
+            chaincode = chainparams.param('code')
+        if self.config.get_active_chain_code() != chaincode:
+            self.config.set_active_chain_code(chaincode)
+
+        self.num_server = 8 if not self.config.get('oneserver') else 0
+        self.blockchain = Blockchain(self.config, self)
+        self.blockchain.init()
+        # A deque of interface header requests, processed left-to-right
+        self.bc_requests = deque()
+        # Server for addresses and transactions
+        self.default_server = self.config.get('server')
+        # Sanitize default server
+        try:
+            deserialize_server(self.default_server)
+        except:
+            self.default_server = None
+        if not self.default_server:
+            self.default_server = pick_random_server()
+
+
+        self.irc_servers = {} # returned by interface (list from irc)
+        self.recent_servers = self.read_recent_servers()
+
+        self.banner = ''
+        self.fee = None
+        self.heights = {}
+        self.merkle_roots = {}
+        self.utxo_roots = {}
+
+        # subscriptions and requests
+        self.subscribed_addresses = set()
+        # Requests from client we've not seen a response to
+        self.unanswered_requests = {}
+        # retry times
+        self.server_retry_time = time.time()
+        self.nodes_retry_time = time.time()
+
+
+        # kick off the network.  interface is the main server we are currently
+        # communicating with.  interfaces is the set of servers we are connecting
+        # to or have an ongoing connection with
+        self.auto_connect = self.config.get('auto_connect', False)
+
+        self.start_network(deserialize_server(self.default_server)[2],
+                           deserialize_proxy(self.config.get('proxy')))
+        if self.plugins:
+            self.plugins.set_network(self)
+
+
     def register_callback(self, event, callback):
         with self.lock:
             self.callbacks[event].append(callback)
@@ -197,6 +254,9 @@ class Network(util.DaemonThread):
         if not self.config.path:
             return []
         path = os.path.join(self.config.path, "recent_servers")
+        if not os.path.exists(path):
+            os.mkdir(path)
+        path = os.path.join(path, chainparams.param('code').lower())
         try:
             with open(path, "r") as f:
                 data = f.read()

@@ -38,6 +38,7 @@ import bitcoin
 from synchronizer import Synchronizer
 from mnemonic import Mnemonic
 import chainparams
+import simple_config
 
 import paymentrequest
 
@@ -122,7 +123,7 @@ class WalletStorage(PrintError):
             self.put_above_chain(chaincode, {})
 
     def get(self, key, default=None):
-        chaincode = self.get_above_chain('active_chain', 'BTC')
+        chaincode = simple_config.get_config().get_above_chain('active_chain', 'BTC')
         self.ensure_chain_section(chaincode)
         with self.lock:
             v = self.data[chaincode].get(key)
@@ -139,7 +140,7 @@ class WalletStorage(PrintError):
         except Exception:
             self.print_error('json error: cannot save', key)
             return
-        chaincode = self.get_above_chain('active_chain', 'BTC')
+        chaincode = simple_config.get_config().get_above_chain('active_chain', 'BTC')
         self.ensure_chain_section(chaincode)
         with self.lock:
             if value is not None:
@@ -1810,11 +1811,56 @@ class NewWallet(BIP32_Wallet, Mnemonic):
     root_derivation = "m/"
     wallet_type = 'standard'
 
+    def __init__(self, storage):
+        chain = chainparams.get_active_chain()
+        self.root_derivation = "m/44'/%d'" % chain.chain_index
+        super(NewWallet, self).__init__(storage)
+
     def create_main_account(self, password):
         xpub = self.master_public_keys.get("x/")
         account = BIP32_Account({'xpub':xpub})
         self.add_account('0', account)
 
+    def get_action(self):
+        if not self.seed:
+            return 'create_seed'
+        if not self.get_master_public_key():
+            return 'add_chain'
+        if not self.accounts:
+            return 'create_accounts'
+
+# TODO 
+
+#    def change_active_chain(self, chaincode=None):
+#        self.stop_threads()
+#        self.synchronizer = None
+#        self.verifier = None
+#
+#        if chaincode is None:
+#            chaincode = chainparams.param('code')
+#        if simple_config.get_config().get_active_chain_code() != chaincode:
+#            simple_config.get_config().set_active_chain_code(chaincode)
+#        storage = self.storage
+#        self.use_change            = storage.get('use_change',True)
+#        self.labels                = storage.get('labels', {})
+#        self.frozen_addresses      = set(storage.get('frozen_addresses',[]))
+#        self.stored_height         = storage.get('stored_height', 0)       # last known height (for offline mode)
+#        self.history               = storage.get('addr_history',{})        # address -> list(txid, height)
+#        self.imported_keys         = self.storage.get('imported_keys',{})
+#
+#        self.load_accounts()
+#        self.load_transactions()
+#        self.build_reverse_history()
+#
+#        self.receive_requests = self.storage.get('payment_requests', {})
+#
+#        self.set_up_to_date(False)
+#
+#        self.check_history()
+#
+#        self.master_public_keys  = storage.get('master_public_keys', {})
+#        self.master_private_keys = storage.get('master_private_keys', {})
+#        self.gap_limit = storage.get('gap_limit', 20)
 
 class Multisig_Wallet(BIP32_Wallet, Mnemonic):
     # generic m of n

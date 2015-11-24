@@ -34,6 +34,7 @@ from encompass.plugins import run_hook
 from encompass import SimpleConfig, Wallet, WalletStorage
 from encompass.paymentrequest import InvoiceStore
 from encompass.contacts import Contacts
+from encompass import chainparams
 from installwizard import InstallWizard
 
 
@@ -220,6 +221,23 @@ class ElectrumGui:
         self.windows.remove(window)
         self.build_tray_menu()
         self.plugins.on_close_window(window)
+
+    def change_active_chain(self, chaincode):
+        if chaincode == self.config.get_active_chain_code():
+            return
+        elif not chainparams.is_known_chain(chaincode):
+            return
+
+        self.network.stop_network()
+        self.config.set_active_chain_code(chaincode)
+        self.network.change_active_chain(chaincode)
+
+        wallet = self.load_wallet_file(self.config.get_wallet_path())
+        for w in self.windows:
+            w.close_wallet()
+            w.load_wallet(wallet)
+            w.need_update.set()
+
 
     def main(self):
         self.timer.start()
