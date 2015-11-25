@@ -63,6 +63,10 @@ def param(attr, chaincode=None):
     return getattr(get_chain_instance(chaincode), attr)
 
 def get_chain_instance(chaincode):
+    active_chain = get_active_chain()
+    if active_chain and active_chain.code == chaincode:
+        return active_chain
+
     chain = known_chain_dict.get(chaincode)
     if not chain:
         return

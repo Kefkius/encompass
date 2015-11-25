@@ -26,6 +26,7 @@ import chainparams
 
 class Account(object):
     def __init__(self, v):
+        self.active_chain = chainparams.get_chain_instance(v.get('chain', 'BTC'))
         self.receiving_pubkeys   = v.get('receiving', [])
         self.change_pubkeys      = v.get('change', [])
         # addresses will not be stored on disk
@@ -65,7 +66,7 @@ class Account(object):
         return address
 
     def pubkeys_to_address(self, pubkey):
-        return public_key_to_bc_address(pubkey.decode('hex'), chainparams.param('p2pkh_version'))
+        return public_key_to_bc_address(pubkey.decode('hex'), self.active_chain.p2pkh_version)
 
     def has_change(self):
         return True
@@ -389,7 +390,7 @@ class Multisig_Account(BIP32_Account):
 
     def pubkeys_to_address(self, pubkeys):
         redeem_script = Transaction.multisig_script(sorted(pubkeys), self.m)
-        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), chainparams.param('p2sh_version'))
+        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), self.active_chain.p2sh_version)
         return address
 
     def get_address(self, for_change, n):

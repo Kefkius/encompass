@@ -48,15 +48,21 @@ IMPORTED_ACCOUNT = '/x'
 
 class WalletStorage(PrintError):
 
-    def __init__(self, path):
+    def __init__(self, path, active_chain=None):
         self.lock = threading.RLock()
         self.data = {}
         self.path = path
         self.file_exists = False
         self.modified = False
         self.print_error("wallet path", self.path)
+        if active_chain is None:
+            active_chain = chainparams.get_active_chain()
+        self.active_chain = active_chain
         if self.path:
             self.read(self.path)
+
+    def param(self, attr):
+        return getattr(self.active_chain, attr)
 
     def read(self, path):
         """Read the contents of the wallet file."""
@@ -123,7 +129,7 @@ class WalletStorage(PrintError):
             self.put_above_chain(chaincode, {})
 
     def get(self, key, default=None):
-        chaincode = simple_config.get_config().get_above_chain('active_chain', 'BTC')
+        chaincode = self.active_chain.code
         self.ensure_chain_section(chaincode)
         with self.lock:
             v = self.data[chaincode].get(key)
@@ -140,7 +146,7 @@ class WalletStorage(PrintError):
         except Exception:
             self.print_error('json error: cannot save', key)
             return
-        chaincode = simple_config.get_config().get_above_chain('active_chain', 'BTC')
+        chaincode = self.active_chain.code
         self.ensure_chain_section(chaincode)
         with self.lock:
             if value is not None:
@@ -321,6 +327,7 @@ class Abstract_Wallet(PrintError):
         self.accounts = {}
         d = self.storage.get('accounts', {})
         for k, v in d.items():
+            v['chain'] = self.storage.param('code')
             if self.wallet_type == 'old' and k in [0, '0']:
                 v['mpk'] = self.storage.get('master_public_key')
                 self.accounts['0'] = OldAccount(v)
@@ -376,7 +383,7 @@ class Abstract_Wallet(PrintError):
             raise Exception('Address already in wallet')
 
         if self.accounts.get(IMPORTED_ACCOUNT) is None:
-            self.accounts[IMPORTED_ACCOUNT] = ImportedAccount({'imported':{}})
+            self.accounts[IMPORTED_ACCOUNT] = ImportedAccount({'imported':{}, 'chain': self.storage.param('code')})
         self.accounts[IMPORTED_ACCOUNT].add(address, pubkey, sec, password)
         self.save_accounts()
 
@@ -627,7 +634,7 @@ class Abstract_Wallet(PrintError):
         received, sent = self.get_addr_io(address)
         c = u = x = 0
         for txo, (tx_height, v, is_cb) in received.items():
-            if is_cb and tx_height + chainparams.param('COINBASE_MATURITY') > self.get_local_height():
+            if is_cb and tx_height + self.storage.param('COINBASE_MATURITY') > self.get_local_height():
                 x += v
             elif tx_height > 0:
                 c += v
@@ -651,7 +658,7 @@ class Abstract_Wallet(PrintError):
             c = self.get_addr_utxo(addr)
             for txo, v in c.items():
                 tx_height, value, is_cb = v
-                if is_cb and tx_height + chainparams.param('COINBASE_MATURITY') > self.get_local_height():
+                if is_cb and tx_height + self.storage.param('COINBASE_MATURITY') > self.get_local_height():
                     continue
                 prevout_hash, prevout_n = txo.split(':')
                 output = {
@@ -913,7 +920,7 @@ class Abstract_Wallet(PrintError):
     def fee_per_kb(self, config):
         b = config.get('dynamic_fees')
         f = config.get('fee_factor', 50)
-        F = config.get('fee_per_kb', chainparams.param('RECOMMENDED_FEE'))
+        F = config.get('fee_per_kb', self.storage.param('RECOMMENDED_FEE'))
         return min(F, self.network.fee*(50 + f)/100) if b and self.network and self.network.fee else F
 
     def get_tx_fee(self, tx):
@@ -924,8 +931,8 @@ class Abstract_Wallet(PrintError):
     def estimated_fee(self, tx, fee_per_kb):
         estimated_size = len(tx.serialize(-1))/2
         fee = int(fee_per_kb * estimated_size / 1000.)
-        if fee < chainparams.param('MIN_RELAY_TX_FEE'): # and tx.requires_fee(self):
-            fee = chainparams.param('MIN_RELAY_TX_FEE')
+        if fee < self.storage.param('MIN_RELAY_TX_FEE'): # and tx.requires_fee(self):
+            fee = self.storage.param('MIN_RELAY_TX_FEE')
         return fee
 
     def make_unsigned_transaction(self, coins, outputs, config, fixed_fee=None, change_addr=None):
@@ -998,7 +1005,7 @@ class Abstract_Wallet(PrintError):
         change_amount = total - ( amount + fee )
         if fixed_fee is not None and change_amount > 0:
             tx.outputs.append(('address', change_addr, change_amount))
-        elif change_amount > chainparams.param('DUST_THRESHOLD'):
+        elif change_amount > self.storage.param('DUST_THRESHOLD'):
             tx.outputs.append(('address', change_addr, change_amount))
             # recompute fee including change output
             fee = self.estimated_fee(tx, fee_per_kb)
@@ -1006,7 +1013,7 @@ class Abstract_Wallet(PrintError):
             tx.outputs.pop()
             # if change is still above dust threshold, re-add change output.
             change_amount = total - ( amount + fee )
-            if change_amount > chainparams.param('DUST_THRESHOLD'):
+            if change_amount > self.storage.param('DUST_THRESHOLD'):
                 tx.outputs.append(('address', change_addr, change_amount))
                 self.print_error('change', change_amount)
             else:
@@ -1410,7 +1417,7 @@ class Imported_Wallet(Abstract_Wallet):
         Abstract_Wallet.__init__(self, storage)
         a = self.accounts.get(IMPORTED_ACCOUNT)
         if not a:
-            self.accounts[IMPORTED_ACCOUNT] = ImportedAccount({'imported':{}})
+            self.accounts[IMPORTED_ACCOUNT] = ImportedAccount({'imported':{}, 'chain': self.storage.param('code')})
 
     def is_watching_only(self):
         acc = self.accounts[IMPORTED_ACCOUNT]
@@ -1681,7 +1688,7 @@ class BIP32_Simple_Wallet(BIP32_Wallet):
 
     def create_xprv_wallet(self, xprv, password):
         xpub = bitcoin.xpub_from_xprv(xprv)
-        account = BIP32_Account({'xpub':xpub})
+        account = BIP32_Account({'xpub':xpub, 'chain': self.storage.param('code')})
         self.storage.put_above_chain('seed_version', self.seed_version, True)
         self.add_master_private_key(self.root_name, xprv, password)
         self.add_master_public_key(self.root_name, xpub)
@@ -1690,7 +1697,7 @@ class BIP32_Simple_Wallet(BIP32_Wallet):
         self.storage.put_above_chain('use_encryption', self.use_encryption,True)
 
     def create_xpub_wallet(self, xpub):
-        account = BIP32_Account({'xpub':xpub})
+        account = BIP32_Account({'xpub':xpub, 'chain': self.storage.param('code')})
         self.storage.put_above_chain('seed_version', self.seed_version, True)
         self.add_master_public_key(self.root_name, xpub)
         self.add_account('0', account)
@@ -1741,7 +1748,7 @@ class BIP32_HD_Wallet(BIP32_Wallet):
         self.add_master_public_key(derivation, xpub)
         if xprv:
             self.add_master_private_key(derivation, xprv, password)
-        account = BIP32_Account({'xpub':xpub})
+        account = BIP32_Account({'xpub':xpub, 'chain': self.storage.param('code')})
         addr, pubkey = account.first_address()
         self.add_address(addr)
         return account_id, xpub, pubkey, addr
@@ -1754,7 +1761,7 @@ class BIP32_HD_Wallet(BIP32_Wallet):
 
     def create_account(self, name, password):
         account_id, xpub, _, _ = self.get_next_account(password)
-        account = BIP32_Account({'xpub':xpub})
+        account = BIP32_Account({'xpub':xpub, 'chain': self.storage.param('code')})
         self.add_account(account_id, account)
         self.set_label(account_id, name)
         # add address of the next account
@@ -1776,7 +1783,7 @@ class BIP32_HD_Wallet(BIP32_Wallet):
         next_id, next_xpub, next_pubkey, next_address = self.next_account
         if name:
             self.set_label(next_id, name)
-        self.accounts[next_id] = PendingAccount({'pending':True, 'address':next_address, 'pubkey':next_pubkey})
+        self.accounts[next_id] = PendingAccount({'pending':True, 'address':next_address, 'pubkey':next_pubkey, 'chain': self.storage.param('code')})
         self.save_accounts()
 
     def synchronize(self):
@@ -1794,14 +1801,14 @@ class BIP32_HD_Wallet(BIP32_Wallet):
             next_id, next_xpub, next_pubkey, next_address = self.next_account
             if self.address_is_old(next_address):
                 self.print_error("creating account", next_id)
-                self.add_account(next_id, BIP32_Account({'xpub':next_xpub}))
+                self.add_account(next_id, BIP32_Account({'xpub':next_xpub, 'chain': self.storage.param('code')}))
                 # here the user should get a notification
                 self.next_account = None
                 self.storage.put('next_account2', self.next_account)
             elif self.history.get(next_address, []):
                 if next_id not in self.accounts:
                     self.print_error("create pending account", next_id)
-                    self.accounts[next_id] = PendingAccount({'pending':True, 'address':next_address, 'pubkey':next_pubkey})
+                    self.accounts[next_id] = PendingAccount({'pending':True, 'address':next_address, 'pubkey':next_pubkey, 'chain': self.storage.param('code')})
                     self.save_accounts()
 
 
@@ -1812,13 +1819,12 @@ class NewWallet(BIP32_Wallet, Mnemonic):
     wallet_type = 'standard'
 
     def __init__(self, storage):
-        chain = chainparams.get_active_chain()
-        self.root_derivation = "m/44'/%d'" % chain.chain_index
+        self.root_derivation = "m/44'/%d'" % storage.param('chain_index')
         super(NewWallet, self).__init__(storage)
 
     def create_main_account(self, password):
         xpub = self.master_public_keys.get("x/")
-        account = BIP32_Account({'xpub':xpub})
+        account = BIP32_Account({'xpub':xpub, 'chain': self.storage.param('code')})
         self.add_account('0', account)
 
     def get_action(self):
@@ -1828,39 +1834,6 @@ class NewWallet(BIP32_Wallet, Mnemonic):
             return 'add_chain'
         if not self.accounts:
             return 'create_accounts'
-
-# TODO 
-
-#    def change_active_chain(self, chaincode=None):
-#        self.stop_threads()
-#        self.synchronizer = None
-#        self.verifier = None
-#
-#        if chaincode is None:
-#            chaincode = chainparams.param('code')
-#        if simple_config.get_config().get_active_chain_code() != chaincode:
-#            simple_config.get_config().set_active_chain_code(chaincode)
-#        storage = self.storage
-#        self.use_change            = storage.get('use_change',True)
-#        self.labels                = storage.get('labels', {})
-#        self.frozen_addresses      = set(storage.get('frozen_addresses',[]))
-#        self.stored_height         = storage.get('stored_height', 0)       # last known height (for offline mode)
-#        self.history               = storage.get('addr_history',{})        # address -> list(txid, height)
-#        self.imported_keys         = self.storage.get('imported_keys',{})
-#
-#        self.load_accounts()
-#        self.load_transactions()
-#        self.build_reverse_history()
-#
-#        self.receive_requests = self.storage.get('payment_requests', {})
-#
-#        self.set_up_to_date(False)
-#
-#        self.check_history()
-#
-#        self.master_public_keys  = storage.get('master_public_keys', {})
-#        self.master_private_keys = storage.get('master_private_keys', {})
-#        self.gap_limit = storage.get('gap_limit', 20)
 
 class Multisig_Wallet(BIP32_Wallet, Mnemonic):
     # generic m of n
@@ -1879,6 +1852,7 @@ class Multisig_Wallet(BIP32_Wallet, Mnemonic):
         d = self.storage.get('accounts', {})
         v = d.get('0')
         if v:
+            v['chain'] = self.storage.param('code')
             if v.get('xpub3'):
                 v['xpubs'] = [v['xpub'], v['xpub2'], v['xpub3']]
             elif v.get('xpub2'):
@@ -1886,7 +1860,7 @@ class Multisig_Wallet(BIP32_Wallet, Mnemonic):
             self.accounts = {'0': Multisig_Account(v)}
 
     def create_main_account(self, password):
-        account = Multisig_Account({'xpubs': self.master_public_keys.values(), 'm': self.m})
+        account = Multisig_Account({'xpubs': self.master_public_keys.values(), 'm': self.m, 'chain': self.storage.param('code')})
         self.add_account('0', account)
 
     def get_master_public_keys(self):
@@ -1948,7 +1922,7 @@ class OldWallet(Deterministic_Wallet):
         self.create_account(mpk)
 
     def create_account(self, mpk):
-        self.accounts['0'] = OldAccount({'mpk':mpk, 0:[], 1:[]})
+        self.accounts['0'] = OldAccount({'mpk':mpk, 0:[], 1:[], 'chain': self.storage.param('code')})
         self.save_accounts()
 
     def create_watching_only_wallet(self, mpk):

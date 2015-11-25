@@ -124,7 +124,7 @@ class ElectrumGui:
 
     def load_wallet_file(self, filename):
         try:
-            storage = WalletStorage(filename)
+            storage = WalletStorage(filename, chainparams.get_active_chain())
         except Exception as e:
             QMessageBox.information(None, _('Error'), str(e), _('OK'))
             return
@@ -172,7 +172,7 @@ class ElectrumGui:
         if not filename:
             return
         full_path = os.path.join(wallet_folder, filename)
-        storage = WalletStorage(full_path)
+        storage = WalletStorage(full_path, chainparams.get_active_chain())
         if storage.file_exists:
             QMessageBox.critical(None, "Error", _("File exists"))
             return
