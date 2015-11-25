@@ -78,7 +78,7 @@ if is_bundle or is_local or is_android:
 
 
 from encompass import util, chainparams
-from encompass import SimpleConfig, Network, Wallet, WalletStorage
+from encompass import SimpleConfig, NetworkController, Network, Wallet, WalletStorage
 from encompass.util import print_msg, print_error, print_stderr, print_json, set_verbosity, InvalidPassword
 from encompass.plugins import Plugins, run_hook, always_hook
 from encompass.commands import get_parser, known_commands, Commands, config_variables
@@ -98,12 +98,12 @@ def prompt_password(prompt, confirm=True):
 
 
 
-def init_gui(config, network, plugins):
+def init_gui(config, network_controller, plugins):
     gui_name = config.get('gui', 'qt')
     if gui_name in ['lite', 'classic']:
         gui_name = 'qt'
     gui = __import__('encompass_gui.' + gui_name, fromlist=['encompass_gui'])
-    gui = gui.ElectrumGui(config, network, plugins)
+    gui = gui.ElectrumGui(config, network_controller, plugins)
     return gui
 
 
@@ -158,6 +158,7 @@ def init_cmdline(config):
                 wallet = Wallet.from_seed(seed, password, storage)
 
             if not config.get('offline'):
+                # TODO use network controller
                 network = Network(config)
                 network.start()
                 wallet.start_threads(network)
@@ -311,15 +312,17 @@ class ClientThread(util.DaemonThread):
             if sub == 'start':
                 response = "Daemon already running"
             elif sub == 'status':
-                p = self.network.get_parameters()
+#                p = self.network.get_parameters()
+                chains = self.network.networks()
                 response = {
                     'path': self.network.config.path,
-                    'server': p[0],
-                    'blockchain_height': self.network.get_local_height(),
-                    'server_height': self.network.get_server_height(),
-                    'nodes': self.network.get_interfaces(),
-                    'connected': self.network.is_connected(),
-                    'auto_connect': p[4],
+                    'blockchains': chains,
+#                    'server': p[0],
+#                    'blockchain_height': self.network.get_local_height(),
+#                    'server_height': self.network.get_server_height(),
+#                    'nodes': self.network.get_interfaces(),
+#                    'connected': self.network.is_connected(),
+#                    'auto_connect': p[4],
                 }
             elif sub == 'stop':
                 self.server.stop()
@@ -339,12 +342,12 @@ class ClientThread(util.DaemonThread):
 
 class NetworkServer(util.DaemonThread):
 
-    def __init__(self, config, network):
+    def __init__(self, config, network_controller):
         util.DaemonThread.__init__(self)
         self.debug = False
         self.config = config
         self.pipe = util.QueuePipe()
-        self.network = network
+        self.network_controller = network_controller
         self.lock = threading.RLock()
         # each GUI is a client of the daemon
         self.clients = []
@@ -352,8 +355,9 @@ class NetworkServer(util.DaemonThread):
         self.gui = None
 
     def add_client(self, client):
+        network = self.network_controller.get_network(self.config.get_active_chain_code())
         for key in ['fee', 'status', 'banner', 'updated', 'servers', 'interfaces']:
-            value = self.network.get_status_value(key)
+            value = network.get_status_value(key)
             client.response_queue.put({'method':'network.status', 'params':[key, value]})
         with self.lock:
             self.clients.append(client)
@@ -512,13 +516,12 @@ if __name__ == '__main__':
     # daemon is not running
     if cmd_name == 'gui':
         if not config.get('offline'):
-            network = Network(config, plugins)
-            network.start()
+            network_controller = NetworkController(config, plugins)
         else:
-            network = None
-        server = NetworkServer(config, network)
+            network_controller = None
+        server = NetworkServer(config, network_controller)
         server.start()
-        server.gui = init_gui(config, network, plugins)
+        server.gui = init_gui(config, network_controller, plugins)
         server.gui.main()
     elif cmd_name == 'daemon':
         subcommand = config.get('subcommand')
@@ -528,9 +531,8 @@ if __name__ == '__main__':
         elif subcommand == 'start':
             p = os.fork()
             if p == 0:
-                network = Network(config, plugins)
-                network.start()
-                server = NetworkServer(config, network)
+                network_controller = NetworkController(config, plugins)
+                server = NetworkServer(config, network_controller)
                 if config.get('websocket_server'):
                     from encompass import websockets
                     websockets.WebSocketServer(config, server).start()
