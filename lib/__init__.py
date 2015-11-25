@@ -5,7 +5,7 @@ import chains
 from util import format_satoshis, print_msg, print_json, print_error, set_verbosity
 from wallet import Synchronizer, WalletStorage
 from wallet import Wallet, Imported_Wallet
-from network import Network, pick_random_server
+from network import NetworkController, Network, pick_random_server
 from interface import Connection, Interface
 from simple_config import SimpleConfig, get_config, set_config
 import bitcoin

@@ -63,9 +63,9 @@ class OpenFileEventFilter(QObject):
 
 class ElectrumGui:
 
-    def __init__(self, config, network, plugins):
+    def __init__(self, config, network_controller, plugins):
         set_language(config.get_above_chain('language'))
-        self.network = network
+        self.network_controller = network_controller
         self.config = config
         self.plugins = plugins
         self.windows = []
@@ -143,14 +143,15 @@ class ElectrumGui:
                 return
             action = wallet.get_action()
         # run wizard
+        network = self.network_controller.get_network(self.config.get_active_chain_code())
         if action is not None:
-            wizard = InstallWizard(self.config, self.network, storage)
+            wizard = InstallWizard(self.config, network, storage)
             wallet = wizard.run(action)
             # keep current wallet
             if not wallet:
                 return
         else:
-            wallet.start_threads(self.network)
+            wallet.start_threads(network)
 
         return wallet
 
@@ -175,7 +176,7 @@ class ElectrumGui:
         if storage.file_exists:
             QMessageBox.critical(None, "Error", _("File exists"))
             return
-        wizard = InstallWizard(self.config, self.network, storage)
+        wizard = InstallWizard(self.config, self.network_controller.get_network(self.config.get_active_chain_code()), storage)
         wallet = wizard.run('new')
         if wallet:
             self.new_window(full_path)
@@ -193,7 +194,7 @@ class ElectrumGui:
             wallet = self.load_wallet_file(path)
             if not wallet:
                 return
-            w = ElectrumWindow(self.config, self.network, self)
+            w = ElectrumWindow(self.config, self.network_controller.get_network(self.config.get_active_chain_code()), self)
             w.connect_slots(self.timer)
 
             # load new wallet in gui
@@ -221,23 +222,6 @@ class ElectrumGui:
         self.windows.remove(window)
         self.build_tray_menu()
         self.plugins.on_close_window(window)
-
-    def change_active_chain(self, chaincode):
-        if chaincode == self.config.get_active_chain_code():
-            return
-        elif not chainparams.is_known_chain(chaincode):
-            return
-
-        self.network.stop_network()
-        self.config.set_active_chain_code(chaincode)
-        self.network.change_active_chain(chaincode)
-
-        wallet = self.load_wallet_file(self.config.get_wallet_path())
-        for w in self.windows:
-            w.close_wallet()
-            w.load_wallet(wallet)
-            w.need_update.set()
-
 
     def main(self):
         self.timer.start()

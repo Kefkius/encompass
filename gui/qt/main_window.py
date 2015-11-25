@@ -167,14 +167,23 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.labelsChanged.connect(self.update_tabs)
         self.history_list.setFocus(True)
 
+        self.callbacks = {
+            'updated': lambda: self.need_update.set(),
+            'new_transaction': self.new_transaction,
+        }
+        for name, method in [
+            ('status', self.update_status),
+            ('close', self.close),
+            ('banner', self.console.showMessage),
+            ('verified', self.history_list.update_item)
+        ]:
+            self.connect(self, QtCore.SIGNAL(name), method)
+            self.callbacks.update({name: lambda *params: self.emit(QtCore.SIGNAL(name), *params)})
+
         # network callbacks
         if self.network:
-            self.network.register_callback('updated', lambda: self.need_update.set())
-            self.network.register_callback('new_transaction', self.new_transaction)
-            self.register_callback('status', self.update_status)
-            self.register_callback('close', self.close)
-            self.register_callback('banner', self.console.showMessage)
-            self.register_callback('verified', self.history_list.update_item)
+            for name, method in self.callbacks.items():
+                self.network.register_callback(name, method)
 
             # set initial message
             self.console.showMessage(self.network.banner)
@@ -2923,5 +2932,21 @@ class ElectrumWindow(QMainWindow, PrintError):
         elif not chainparams.is_known_chain(chaincode):
             return
 
-        self.gui_object.change_active_chain(chaincode)
+        self.close_wallet()
+        if self.network:
+            for name, method in self.callbacks.items():
+                self.network.remove_callback(name, method)
+
+        self.config.set_active_chain_code(chaincode)
+        self.network = self.gui_object.network_controller.get_network(chaincode)
+
+        if self.network:
+            for name, method in self.callbacks.items():
+                self.network.register_callback(name, method)
+
+            # set initial message
+            self.console.showMessage(self.network.banner)
+
+        self.load_wallet(self.wallet)
+        self.wallet.start_threads(self.network)
 

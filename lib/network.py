@@ -18,6 +18,49 @@ from interface import Connection, Interface
 from blockchain import Blockchain
 from version import ELECTRUM_VERSION, PROTOCOL_VERSION
 import chainparams
+from simple_config import SimpleConfig, get_config
+
+class NetworkController(util.DaemonThread):
+    """Handles Network instances for various chains."""
+    def __init__(self, config=None, plugins=None):
+        super(NetworkController, self).__init__()
+        self.config = get_config() if config is None else config
+        self.networks = {}
+        self.lock = Lock()
+        self.plugins = plugins
+
+    def networks(self):
+        with self.lock:
+            return self.networks.keys()
+
+    def get_network(self, chaincode):
+        """Get the Network instance for chaincode.
+
+        Creates a new Network instance if necessary.
+        """
+        with self.lock:
+            instance = self.networks.get(chaincode)
+        if instance is None:
+            instance = self._start_network(chaincode)
+        return instance
+
+    def remove_network(self, chaincode):
+        """Stop the Network instance for chaincode."""
+        with self.lock:
+            instance = self.networks.get(chaincode)
+            if instance:
+                instance.stop_network()
+
+    def _start_network(self, chaincode):
+        with self.lock:
+            if chaincode in self.networks:
+                return self.networks[chaincode]
+            # Start a Network instance if necessary
+            config = self.config.get_above_chain(chaincode)
+            network = self.networks[chaincode] = Network(config, self.plugins)
+            network.start()
+            return network
+
 
 
 NODES_RETRY_INTERVAL = 60
@@ -73,7 +116,6 @@ def pick_random_server(hostmap = None, protocol = 's', exclude_set = set()):
     eligible = list(set(filter_protocol(hostmap, protocol)) - exclude_set)
     return random.choice(eligible) if eligible else None
 
-from simple_config import SimpleConfig
 
 proxy_modes = ['socks4', 'socks5', 'http']
 
@@ -184,63 +226,6 @@ class Network(util.DaemonThread):
         if self.plugins:
             self.plugins.set_network(self)
 
-    def change_active_chain(self, chaincode=None):
-        self.stop_network()
-        if self.interface:
-            self.close_interface(self.interface)
-        if self.plugins:
-            self.plugins.set_network(None)
-
-        if chaincode is None:
-            chaincode = chainparams.param('code')
-        if self.config.get_active_chain_code() != chaincode:
-            self.config.set_active_chain_code(chaincode)
-
-        self.num_server = 8 if not self.config.get('oneserver') else 0
-        self.blockchain = Blockchain(self.config, self)
-        self.blockchain.init()
-        # A deque of interface header requests, processed left-to-right
-        self.bc_requests = deque()
-        # Server for addresses and transactions
-        self.default_server = self.config.get('server')
-        # Sanitize default server
-        try:
-            deserialize_server(self.default_server)
-        except:
-            self.default_server = None
-        if not self.default_server:
-            self.default_server = pick_random_server()
-
-
-        self.irc_servers = {} # returned by interface (list from irc)
-        self.recent_servers = self.read_recent_servers()
-
-        self.banner = ''
-        self.fee = None
-        self.heights = {}
-        self.merkle_roots = {}
-        self.utxo_roots = {}
-
-        # subscriptions and requests
-        self.subscribed_addresses = set()
-        # Requests from client we've not seen a response to
-        self.unanswered_requests = {}
-        # retry times
-        self.server_retry_time = time.time()
-        self.nodes_retry_time = time.time()
-
-
-        # kick off the network.  interface is the main server we are currently
-        # communicating with.  interfaces is the set of servers we are connecting
-        # to or have an ongoing connection with
-        self.auto_connect = self.config.get('auto_connect', False)
-
-        self.start_network(deserialize_server(self.default_server)[2],
-                           deserialize_proxy(self.config.get('proxy')))
-        if self.plugins:
-            self.plugins.set_network(self)
-
-
     def register_callback(self, event, callback):
         with self.lock:
             self.callbacks[event].append(callback)
@@ -249,6 +234,11 @@ class Network(util.DaemonThread):
         with self.lock:
             callbacks = self.callbacks[event][:]
         [callback(*params) for callback in callbacks]
+
+    def remove_callback(self, event, callback):
+        with self.lock:
+            if callback in self.callbacks.get(event):
+                self.callbacks[event].remove(callback)
 
     def read_recent_servers(self):
         if not self.config.path:
