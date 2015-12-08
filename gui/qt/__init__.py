@@ -124,7 +124,8 @@ class ElectrumGui:
 
     def load_wallet_file(self, filename):
         try:
-            storage = WalletStorage(filename, chainparams.get_active_chain())
+            chain = chainparams.get_chain_instance(self.config.get_active_chain_code())
+            storage = WalletStorage(filename, chain)
         except Exception as e:
             QMessageBox.information(None, _('Error'), str(e), _('OK'))
             return

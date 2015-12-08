@@ -57,7 +57,7 @@ class NetworkController(util.DaemonThread):
                 return self.networks[chaincode]
             # Start a Network instance if necessary
             config = self.config.get_above_chain(chaincode)
-            network = self.networks[chaincode] = Network(config, self.plugins)
+            network = self.networks[chaincode] = Network(config, self.plugins, chaincode)
             network.start()
             return network
 
@@ -167,11 +167,12 @@ class Network(util.DaemonThread):
           stop()
     """
 
-    def __init__(self, config=None, plugins=None):
+    def __init__(self, config=None, plugins=None, chaincode='BTC'):
         if config is None:
             config = {}  # Do not use mutables as default values!
         util.DaemonThread.__init__(self)
         self.config = SimpleConfig(config) if type(config) == type({}) else config
+        self.active_chain = chainparams.get_chain_instance(chaincode)
         self.num_server = 8 if not self.config.get('oneserver') else 0
         self.blockchain = Blockchain(self.config, self)
         # A deque of interface header requests, processed left-to-right
@@ -246,7 +247,7 @@ class Network(util.DaemonThread):
         path = os.path.join(self.config.path, "recent_servers")
         if not os.path.exists(path):
             os.mkdir(path)
-        path = os.path.join(path, chainparams.param('code').lower())
+        path = os.path.join(path, self.active_chain.code.lower())
         try:
             with open(path, "r") as f:
                 data = f.read()
@@ -352,7 +353,7 @@ class Network(util.DaemonThread):
         if self.irc_servers:
             out = self.irc_servers
         else:
-            out = chainparams.param('DEFAULT_SERVERS')
+            out = dict(self.active_chain.DEFAULT_SERVERS)
             for s in self.recent_servers:
                 try:
                     host, port, protocol = deserialize_server(s)
