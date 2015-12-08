@@ -2937,6 +2937,8 @@ class ElectrumWindow(QMainWindow, PrintError):
             for name, method in self.callbacks.items():
                 self.network.remove_callback(name, method)
 
+        # TODO tell the network controller that we're done with the network instead of stopping the network.
+        self.gui_object.network_controller.remove_network(self.config.get_active_chain_code())
         self.config.set_active_chain_code(chaincode)
         self.network = self.gui_object.network_controller.get_network(chaincode)
 

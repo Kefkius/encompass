@@ -49,7 +49,8 @@ class NetworkController(util.DaemonThread):
         with self.lock:
             instance = self.networks.get(chaincode)
             if instance:
-                instance.stop_network()
+                instance.stop()
+                self.networks[chaincode] = None
 
     def _start_network(self, chaincode):
         with self.lock:
