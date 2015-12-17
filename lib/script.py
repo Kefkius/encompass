@@ -25,6 +25,26 @@ class BCDataStream(object):
         else:
             self.input += bytes
 
+    def read_vector(self, func):
+        """Read a VarInt amount and call func that many times."""
+        if self.input is None:
+            raise SerializationError("call write(bytes) before trying to deserialize")
+
+        try:
+            length = self.read_compact_size()
+        except IndexError:
+            raise SerializationError("attempt to read past end of buffer")
+
+        result = []
+        for i in range(length):
+            result.append(func(self))
+        return result
+
+    def write_vector(self, items, func):
+        self.write_compact_size(len(items))
+        for i in items:
+            func(i, self)
+
     def read_string(self):
         # Strings are encoded depending on length:
         # 0 to 252 :  1-byte-length followed by bytes (if any)
