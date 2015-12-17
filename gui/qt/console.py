@@ -48,7 +48,7 @@ class Console(QtGui.QPlainTextEdit):
     def updateNamespace(self, namespace):
         self.namespace.update(namespace)
 
-    def showMessage(self, message):
+    def showMessage(self, message=''):
         self.appendPlainText(message)
         self.newPrompt()
 
