@@ -33,7 +33,11 @@ def init_chains():
         if module_name in chains.not_chainkey_modules:
             continue
 
-        m = importlib.import_module('.' + module_name, 'encompass.chains')
+        # For unit tests, the statement in "try:" will throw an error.
+        try:
+            m = importlib.import_module('.' + module_name, 'encompass.chains')
+        except ImportError:
+            m = importlib.import_module('.' + module_name, 'chains')
         cls = m.get_class()
         params = ChainParams(cls.chain_index, cls.coin_name, cls.code, cls)
         known_chains.append(params)

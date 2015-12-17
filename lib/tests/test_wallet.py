@@ -7,6 +7,9 @@ import json
 
 from StringIO import StringIO
 from lib.wallet import WalletStorage, NewWallet
+from lib import chainparams
+
+chainparams.init_chains()
 
 
 class FakeSynchronizer(object):
@@ -41,7 +44,7 @@ class TestWalletStorage(WalletTestCase):
 
     def test_read_dictionnary_from_file(self):
 
-        some_dict = {"a":"b", "c":"d"}
+        some_dict = {"BTC": {"a":"b", "c":"d"}}
         contents = repr(some_dict)
         with open(self.wallet_path, "w") as f:
             contents = f.write(contents)
@@ -63,7 +66,8 @@ class TestWalletStorage(WalletTestCase):
         contents = ""
         with open(self.wallet_path, "r") as f:
             contents = f.read()
-        self.assertEqual(some_dict, json.loads(contents))
+        chain_dict = {"BTC": some_dict}
+        self.assertEqual(chain_dict, json.loads(contents))
 
 
 class TestNewWallet(WalletTestCase):

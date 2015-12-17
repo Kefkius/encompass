@@ -2,6 +2,20 @@ import unittest
 
 from lib import account
 from lib import wallet
+from lib import chainparams
+
+chainparams.init_chains()
+
+class DummyStorage(wallet.WalletStorage):
+    def __init__(self, d):
+        super(DummyStorage, self).__init__('')
+        self.data = d
+
+    def read(self, path):
+        return
+
+    def write(self):
+        return
 
 class Test_Account(unittest.TestCase):
 
@@ -46,11 +60,14 @@ class Test_Account(unittest.TestCase):
                           ('1EtJphMVpes4UKm8bYu5D1fGvNoTSJM3ZL', v['receiving'][0]))
 
         xprv = 'xprv9s21ZrQH143K2eGb6FZ81nLW44cyy7mrAiqg4VB4pQKDrmizjc1pSuynnpeiaMPdZxvrfvdBi5oqFi9hmsV7MrsVquKkruQ7TJPCfVuPSdw'
-        storage = dict(
-            master_public_keys={0: a.xpub},
-            master_private_keys={0: xprv},
-            wallet_type='standard'
-        )
+        storage = DummyStorage({
+            'BTC': {
+                'master_public_keys': {0: a.xpub},
+                'master_private_keys': {0: xprv},
+            },
+            'wallet_type': 'standard'
+        })
+
         w = wallet.BIP32_Wallet(storage)
         self.assertEquals(a.get_private_key(sequence=[0, 0], wallet=w, password=None),
                           ['KxuBFG13CPUBwPAUWvZSQ3mjNNjHoDghfxnax6RbwS3Rw8tqSzCk'])
@@ -103,10 +120,10 @@ class Test_Account(unittest.TestCase):
         with self.assertRaises(account.InvalidPassword):
             a.check_seed('1' * len(seed))
 
-        storage = {
+        storage = DummyStorage({
             'seed': '00000000000000000000000000000000',
             'wallet_type': 'old'
-        }
+        })
         w = wallet.OldWallet(storage)
         privkey = a.get_private_key(sequence=[0, 0], wallet=w, password=None)
         self.assertEquals(privkey, ['5Khs7w6fBkogoj1v71Mdt4g8m5kaEyRaortmK56YckgTubgnrhz'])

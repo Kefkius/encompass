@@ -8,6 +8,9 @@ import shutil
 from StringIO import StringIO
 from lib.simple_config import (SimpleConfig, read_system_config,
                                read_user_config)
+from lib import chainparams
+
+chainparams.init_chains()
 
 
 class Test_SimpleConfig(unittest.TestCase):
@@ -44,15 +47,15 @@ class Test_SimpleConfig(unittest.TestCase):
                               read_system_config_function=fake_read_system,
                               read_user_config_function=fake_read_user,
                               read_user_dir_function=read_user_dir)
-        self.assertEqual(config.get("auto_connect"), True)
-        self.assertEqual(config.get("auto_cycle"), None)
+        self.assertEqual(config.get_above_chain("auto_connect"), True)
+        self.assertEqual(config.get_above_chain("auto_cycle"), None)
         fake_read_user = lambda _: {"auto_connect": False, "auto_cycle": True}
         config = SimpleConfig(options=self.options,
                               read_system_config_function=fake_read_system,
                               read_user_config_function=fake_read_user,
                               read_user_dir_function=read_user_dir)
-        self.assertEqual(config.get("auto_connect"), False)
-        self.assertEqual(config.get("auto_cycle"), None)
+        self.assertEqual(config.get_above_chain("auto_connect"), False)
+        self.assertEqual(config.get_above_chain("auto_cycle"), None)
 
     def test_simple_config_command_line_overrides_everything(self):
         """Options passed by command line override all other configuration
@@ -76,7 +79,7 @@ class Test_SimpleConfig(unittest.TestCase):
                               read_system_config_function=fake_read_system,
                               read_user_config_function=fake_read_user,
                               read_user_dir_function=read_user_dir)
-        self.assertEqual("b", config.get("encompass_path"))
+        self.assertEqual("b", config.get_above_chain("encompass_path"))
 
     def test_simple_config_system_config_ignored_if_portable(self):
         """If electrum is started with the "portable" flag, system
@@ -101,7 +104,7 @@ class Test_SimpleConfig(unittest.TestCase):
                               read_user_config_function=fake_read_user,
                               read_user_dir_function=read_user_dir)
         self.assertEqual(self.options.get("encompass_path"),
-                         config.get("encompass_path"))
+                         config.get_above_chain("encompass_path"))
 
     def test_cannot_set_options_passed_by_command_line(self):
         fake_read_system = lambda : {}
@@ -168,7 +171,7 @@ class Test_SimpleConfig(unittest.TestCase):
         with open(os.path.join(self.electrum_dir, "config"), "r") as f:
             contents = f.read()
         result = ast.literal_eval(contents)
-        self.assertEqual({"something": "a"}, result)
+        self.assertEqual({"BTC": {}, "something": "a"}, result)
 
 
 class TestSystemConfig(unittest.TestCase):
