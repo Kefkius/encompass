@@ -385,6 +385,7 @@ class NetworkServer(util.DaemonThread):
                 continue
             client = ClientThread(self, connection)
             client.start()
+        self.network_controller.stop()
         print_error("Daemon exiting")
 
 

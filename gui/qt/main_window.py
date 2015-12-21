@@ -496,6 +496,9 @@ class ElectrumWindow(QMainWindow, PrintError):
         if self.require_fee_update:
             self.do_update_fee()
             self.require_fee_update = False
+        # Keep Network instance alive.
+        if self.network and self.network.is_connected():
+            self.gui_object.network_controller.ping(self.network.active_chain.code)
         run_hook('timer_actions')
 
     def format_amount(self, x, is_diff=False, whitespaces=False):
@@ -2937,9 +2940,8 @@ class ElectrumWindow(QMainWindow, PrintError):
             for name, method in self.callbacks.items():
                 self.network.remove_callback(name, method)
 
-        # TODO tell the network controller that we're done with the network instead of stopping the network.
-        self.gui_object.network_controller.remove_network(self.config.get_active_chain_code())
         self.config.set_active_chain_code(chaincode)
+        # Old network instance will expire if nothing else uses it.
         self.network = self.gui_object.network_controller.get_network(chaincode)
 
         if self.network:

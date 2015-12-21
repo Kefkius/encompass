@@ -6,7 +6,7 @@ import random
 import select
 import traceback
 from collections import defaultdict, deque
-from threading import Lock
+from threading import Lock, Timer
 
 import socks
 import socket
@@ -20,12 +20,42 @@ from version import ELECTRUM_VERSION, PROTOCOL_VERSION
 import chainparams
 from simple_config import SimpleConfig, get_config
 
+class ChainTimer(object):
+    """Timer for deciding when to stop a Network instance."""
+    chain_interval = 15 # 2 minute timeout
+    def __init__(self, controller, chaincode):
+        super(ChainTimer, self).__init__()
+        self.controller = controller
+        self.chaincode = chaincode
+        self.timer = None
+        print('\nChainTimer(%s).__init__()' % self.chaincode) # DEBUG
+
+    def callback(self):
+        print('\nChainTimer(%s).callback()' % self.chaincode) # DEBUG
+        self.controller.remove_network(self.chaincode)
+
+    def start(self):
+        #print('ChainTimer(%s).start()' % self.chaincode) # DEBUG
+        self.timer = Timer(self.chain_interval, self.callback)
+        self.timer.start()
+
+    def cancel(self):
+        if self.timer is not None:
+            self.timer.cancel()
+
+    def restart(self):
+        #print('ChainTimer(%s).restart()' % self.chaincode) # DEBUG
+        self.cancel()
+        self.start()
+
 class NetworkController(util.DaemonThread):
     """Handles Network instances for various chains."""
     def __init__(self, config=None, plugins=None):
         super(NetworkController, self).__init__()
         self.config = get_config() if config is None else config
         self.networks = {}
+        # Timers for deciding when to stop Network instances.
+        self.timers = {}
         self.lock = Lock()
         self.plugins = plugins
 
@@ -40,6 +70,8 @@ class NetworkController(util.DaemonThread):
         """
         with self.lock:
             instance = self.networks.get(chaincode)
+            if instance:
+                self.timers[chaincode].restart()
         if instance is None:
             instance = self._start_network(chaincode)
         return instance
@@ -47,10 +79,14 @@ class NetworkController(util.DaemonThread):
     def remove_network(self, chaincode):
         """Stop the Network instance for chaincode."""
         with self.lock:
+            print('\nRemoveNetwork(%s)' % chaincode) # DEBUG
             instance = self.networks.get(chaincode)
             if instance:
                 instance.stop()
                 self.networks[chaincode] = None
+                if self.timers.get(chaincode):
+                    self.timers[chaincode].cancel()
+                self.timers[chaincode] = None
 
     def _start_network(self, chaincode):
         with self.lock:
@@ -60,8 +96,18 @@ class NetworkController(util.DaemonThread):
             config = self.config.get_above_chain(chaincode)
             network = self.networks[chaincode] = Network(config, self.plugins, chaincode)
             network.start()
+            timer = self.timers[chaincode] = ChainTimer(self, chaincode)
+            timer.start()
             return network
 
+    def ping(self, chaincode):
+        """Keep a Network instance alive."""
+        with self.lock:
+            self.timers[chaincode].restart()
+
+    def stop(self):
+        for i in self.networks.keys():
+            self.remove_network(i)
 
 
 NODES_RETRY_INTERVAL = 60
