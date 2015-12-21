@@ -218,6 +218,8 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.connect(self, QtCore.SIGNAL(name), method)
         self.network.register_callback(name, lambda *params: self.emit(QtCore.SIGNAL(name), *params))
 
+    def wallet_chain(self):
+        return self.wallet.storage.active_chain
 
     def fetch_alias(self):
         self.alias_info = None
@@ -2219,7 +2221,7 @@ class ElectrumWindow(QMainWindow, PrintError):
 
         if is_hex:
             try:
-                return Transaction(txt)
+                return Transaction(txt, self.wallet_chain())
             except:
                 traceback.print_exc(file=sys.stdout)
                 QMessageBox.critical(None, _("Unable to parse transaction"), _("Encompass was unable to parse your transaction"))
@@ -2228,7 +2230,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         try:
             tx_dict = json.loads(str(txt))
             assert "hex" in tx_dict.keys()
-            tx = Transaction(tx_dict["hex"])
+            tx = Transaction(tx_dict["hex"], self.wallet_chain())
             #if tx_dict.has_key("input_info"):
             #    input_info = json.loads(tx_dict['input_info'])
             #    tx.add_input_info(input_info)
@@ -2296,7 +2298,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             except BaseException as e:
                 self.show_message(str(e))
                 return
-            tx = transaction.Transaction(r)
+            tx = transaction.Transaction(r, self.wallet_chain())
             self.show_transaction(tx)
 
 
@@ -2930,7 +2932,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.emit(QtCore.SIGNAL('change_currency'), chaincode)
 
     def change_currency(self, chaincode):
-        if chaincode == self.config.get_active_chain_code():
+        if chaincode == self.wallet_chain().code:
             return
         elif not chainparams.is_known_chain(chaincode):
             return

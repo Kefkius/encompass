@@ -248,7 +248,7 @@ class Abstract_Wallet(PrintError):
         tx_list = self.storage.get('transactions', {})
         self.transactions = {}
         for tx_hash, raw in tx_list.items():
-            tx = Transaction(raw)
+            tx = Transaction(raw, self.storage.active_chain)
             self.transactions[tx_hash] = tx
             if self.txi.get(tx_hash) is None and self.txo.get(tx_hash) is None and (tx_hash not in self.pruned_txo.values()):
                 self.print_error("removing unreferenced tx", tx_hash)

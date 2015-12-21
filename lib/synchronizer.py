@@ -118,7 +118,7 @@ class Synchronizer(ThreadJob):
             return
         tx_hash, tx_height = params
         assert tx_hash == hash_encode(Hash(result.decode('hex')))
-        tx = Transaction(result)
+        tx = Transaction(result, self.wallet.storage.active_chain)
         try:
             tx.deserialize()
         except Exception:

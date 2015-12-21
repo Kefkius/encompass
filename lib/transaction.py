@@ -28,6 +28,8 @@ import time
 import sys
 import struct
 
+import chainparams
+
 NO_SIGNATURE = 'ff'
 
 def parse_sig(x_sig):
@@ -143,7 +145,9 @@ def parse_scriptSig(d, bytes):
 
 
 
-def get_address_from_output_script(bytes):
+def get_address_from_output_script(bytes, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     decoded = [ x for x in script_GetOp(bytes) ]
 
     # The Genesis Block, self-payments, and pay-by-IP-address payments look like:
@@ -156,12 +160,12 @@ def get_address_from_output_script(bytes):
     # DUP HASH160 20 BYTES:... EQUALVERIFY CHECKSIG
     match = [ opcodes.OP_DUP, opcodes.OP_HASH160, opcodes.OP_PUSHDATA4, opcodes.OP_EQUALVERIFY, opcodes.OP_CHECKSIG ]
     if match_decoded(decoded, match):
-        return 'address', hash_160_to_bc_address(decoded[2][1])
+        return 'address', hash_160_to_bc_address(decoded[2][1], active_chain.p2pkh_version)
 
     # p2sh
     match = [ opcodes.OP_HASH160, opcodes.OP_PUSHDATA4, opcodes.OP_EQUAL ]
     if match_decoded(decoded, match):
-        return 'address', hash_160_to_bc_address(decoded[1][1],5)
+        return 'address', hash_160_to_bc_address(decoded[1][1], active_chain.p2sh_version)
 
     return 'script', bytes
 
@@ -191,17 +195,21 @@ def parse_input(vds):
     return d
 
 
-def parse_output(vds, i):
+def parse_output(vds, i, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     d = {}
     d['value'] = vds.read_int64()
     scriptPubKey = vds.read_bytes(vds.read_compact_size())
-    d['type'], d['address'] = get_address_from_output_script(scriptPubKey)
+    d['type'], d['address'] = get_address_from_output_script(scriptPubKey, active_chain)
     d['scriptPubKey'] = scriptPubKey.encode('hex')
     d['prevout_n'] = i
     return d
 
 
-def deserialize(raw):
+def deserialize(raw, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     vds = BCDataStream()
     vds.write(raw.decode('hex'))
     d = {}
@@ -210,7 +218,7 @@ def deserialize(raw):
     n_vin = vds.read_compact_size()
     d['inputs'] = list(parse_input(vds) for i in xrange(n_vin))
     n_vout = vds.read_compact_size()
-    d['outputs'] = list(parse_output(vds,i) for i in xrange(n_vout))
+    d['outputs'] = list(parse_output(vds,i, active_chain) for i in xrange(n_vout))
     d['lockTime'] = vds.read_uint32()
     return d
 
@@ -226,9 +234,12 @@ class Transaction:
             self.raw = self.serialize()
         return self.raw
 
-    def __init__(self, raw):
+    def __init__(self, raw, active_chain=None):
         self.raw = raw.strip() if raw else None
         self.inputs = None
+        if active_chain is None:
+            active_chain = chainparams.get_active_chain()
+        self.active_chain = active_chain
 
     def update(self, raw):
         self.raw = raw
@@ -270,7 +281,7 @@ class Transaction:
             self.raw = self.serialize()
         if self.inputs is not None:
             return
-        d = deserialize(self.raw)
+        d = deserialize(self.raw, self.active_chain)
         self.inputs = d['inputs']
         self.outputs = [(x['type'], x['address'], x['value']) for x in d['outputs']]
         self.locktime = d['lockTime']

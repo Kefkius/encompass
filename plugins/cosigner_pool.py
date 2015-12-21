@@ -204,5 +204,5 @@ class Plugin(BasePlugin):
             return
 
         self.listener.clear(keyhash)
-        tx = transaction.Transaction(message)
+        tx = transaction.Transaction(message, wallet.storage.active_chain)
         show_transaction(tx, window, prompt_if_unsaved=True)

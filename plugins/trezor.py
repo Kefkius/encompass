@@ -474,7 +474,7 @@ class TrezorWallet(BIP32_HD_Wallet):
             ptx = self.transactions.get(tx_hash)
             if ptx is None:
                 ptx = self.network.synchronous_get(('blockchain.transaction.get', [tx_hash]))
-                ptx = Transaction(ptx)
+                ptx = Transaction(ptx, self.storage.active_chain)
             prev_tx[tx_hash] = ptx
 
             for x_pubkey in txin['x_pubkeys']:
