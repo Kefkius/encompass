@@ -75,10 +75,12 @@ def command(s):
 
 class Commands:
 
-    def __init__(self, config, wallet, network, callback = None):
+    def __init__(self, config, wallet, network_controller, callback = None):
         self.config = config
         self.wallet = wallet
-        self.network = network
+        self.network_controller = network_controller
+        if self.network_controller:
+            self.network = network_controller.get_network(self.wallet.storage.active_chain.code)
         self._callback = callback
         self.password = None
         self.contacts = contacts.Contacts(self.config)
@@ -117,18 +119,23 @@ class Commands:
         """Change wallet password. """
 
     @command('')
-    def getconfig(self, key):
+    def getconfig(self, key, above_chain=False):
         """Return a configuration variable. """
+        if above_chain:
+            return self.config.get_above_chain(key)
         return self.config.get(key)
 
     @command('')
-    def setconfig(self, key, value):
+    def setconfig(self, key, value, above_chain=False):
         """Set a configuration variable. 'value' may be a string or a Python expression."""
         try:
             value = ast.literal_eval(value)
         except:
             pass
-        self.config.set_key(key, value)
+        if above_chain:
+            self.config.set_key_above_chain(key, value)
+        else:
+            self.config.set_key(key, value)
         return True
 
     @command('')
@@ -651,6 +658,7 @@ command_options = {
     'pending':     (None, "--pending",     "Show only pending requests."),
     'expired':     (None, "--expired",     "Show only expired requests."),
     'paid':        (None, "--paid",        "Show only paid requests."),
+    'above_chain': ("-A", "--above_chain", "Do the command globally, above any one chain's section/rules."),
 }
 
 

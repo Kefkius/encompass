@@ -1793,7 +1793,7 @@ class ElectrumWindow(QMainWindow, PrintError):
                                  'window': self})
         console.updateNamespace({'util' : util, 'bitcoin':bitcoin})
 
-        c = commands.Commands(self.config, self.wallet, self.network, lambda: self.console.set_json(True))
+        c = commands.Commands(self.config, self.wallet, self.gui_object.network_controller, lambda: self.console.set_json(True))
         methods = {}
         def mkfunc(f, method):
             return lambda *args: apply( f, (method, args, self.password_dialog ))

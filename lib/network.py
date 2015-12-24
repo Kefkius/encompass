@@ -22,20 +22,17 @@ from simple_config import SimpleConfig, get_config
 
 class ChainTimer(object):
     """Timer for deciding when to stop a Network instance."""
-    chain_interval = 15 # 2 minute timeout
-    def __init__(self, controller, chaincode):
+    def __init__(self, controller, chaincode, chain_interval = 15):
         super(ChainTimer, self).__init__()
         self.controller = controller
+        self.chain_interval = chain_interval
         self.chaincode = chaincode
         self.timer = None
-        print('\nChainTimer(%s).__init__()' % self.chaincode) # DEBUG
 
     def callback(self):
-        print('\nChainTimer(%s).callback()' % self.chaincode) # DEBUG
-        self.controller.remove_network(self.chaincode)
+        self.controller.expire_network(self.chaincode)
 
     def start(self):
-        #print('ChainTimer(%s).start()' % self.chaincode) # DEBUG
         self.timer = Timer(self.chain_interval, self.callback)
         self.timer.start()
 
@@ -44,7 +41,6 @@ class ChainTimer(object):
             self.timer.cancel()
 
     def restart(self):
-        #print('ChainTimer(%s).restart()' % self.chaincode) # DEBUG
         self.cancel()
         self.start()
 
@@ -56,12 +52,19 @@ class NetworkController(util.DaemonThread):
         self.networks = {}
         # Timers for deciding when to stop Network instances.
         self.timers = {}
+        # Chains that do not expire after a timeout.
+        self.persistent_networks = self.config.get_above_chain('persistent_networks', [])
+        self.chain_interval = int(self.config.get_above_chain('chain_network_timeout', 15))
         self.lock = Lock()
         self.plugins = plugins
 
-    def networks(self):
+    def get_network_keys(self):
         with self.lock:
             return self.networks.keys()
+
+    def get_persistent_networks(self):
+        with self.lock:
+            return list(self.persistent_networks)
 
     def get_network(self, chaincode):
         """Get the Network instance for chaincode.
@@ -76,10 +79,18 @@ class NetworkController(util.DaemonThread):
             instance = self._start_network(chaincode)
         return instance
 
+    def expire_network(self, chaincode):
+        """Stop Network instance for chaincode when timer expires."""
+        with self.lock:
+            disable = chaincode not in self.persistent_networks
+        if disable:
+            self.remove_network(chaincode)
+        else:
+            self.ping(chaincode)
+
     def remove_network(self, chaincode):
         """Stop the Network instance for chaincode."""
         with self.lock:
-            print('\nRemoveNetwork(%s)' % chaincode) # DEBUG
             instance = self.networks.get(chaincode)
             if instance:
                 instance.stop()
@@ -96,7 +107,7 @@ class NetworkController(util.DaemonThread):
             config = self.config.get_above_chain(chaincode)
             network = self.networks[chaincode] = Network(config, self.plugins, chaincode)
             network.start()
-            timer = self.timers[chaincode] = ChainTimer(self, chaincode)
+            timer = self.timers[chaincode] = ChainTimer(self, chaincode, self.chain_interval)
             timer.start()
             return network
 

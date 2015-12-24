@@ -289,7 +289,7 @@ class ClientThread(util.DaemonThread):
         self.response_queue = Queue.Queue()
         self.server.add_client(self)
         self.subscriptions = defaultdict(list)
-        self.network = self.server.network
+        self.network_controller = self.server.network_controller
 
     def run(self):
         config_options = self.client_pipe.get()
@@ -312,24 +312,34 @@ class ClientThread(util.DaemonThread):
             if sub == 'start':
                 response = "Daemon already running"
             elif sub == 'status':
-#                p = self.network.get_parameters()
-                chains = self.network.networks()
+                def fill_network_info(chaincode):
+                    d = {}
+                    network = self.network_controller.get_network(chaincode)
+                    params = network.get_parameters()
+                    d['server'] = params[0]
+                    d['blockchain_height'] = network.get_local_height()
+                    d['server_height'] = network.get_server_height()
+                    d['nodes'] = network.get_interfaces()
+                    d['connected'] = network.is_connected()
+                    d['auto_connect'] = params[4]
+                    return d
+
+                # Get info on each network
+                network_keys = self.network_controller.get_network_keys()
+                chains = {}
+                for i in network_keys:
+                    chain_info = fill_network_info(i)
+                    chains[i] = chain_info
                 response = {
-                    'path': self.network.config.path,
-                    'blockchains': chains,
-#                    'server': p[0],
-#                    'blockchain_height': self.network.get_local_height(),
-#                    'server_height': self.network.get_server_height(),
-#                    'nodes': self.network.get_interfaces(),
-#                    'connected': self.network.is_connected(),
-#                    'auto_connect': p[4],
+                    'path': self.network_controller.config.path,
+                    'networks': chains,
                 }
             elif sub == 'stop':
                 self.server.stop()
                 response = "Daemon stopped"
         else:
             try:
-                response = run_command(config, self.network, password)
+                response = run_command(config, self.network_controller, password)
             except BaseException as e:
                 err = traceback.format_exc()
                 response = {'error':err}
