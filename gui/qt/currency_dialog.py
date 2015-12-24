@@ -6,6 +6,8 @@ from encompass import chainparams
 
 from util import Buttons, CloseButton, OkButton
 
+ResizeModeRole = Qt.UserRole + 1
+
 class CurrenciesModel(QAbstractTableModel):
     def __init__(self, main_window, parent=None):
         super(CurrenciesModel, self).__init__(parent)
@@ -14,12 +16,13 @@ class CurrenciesModel(QAbstractTableModel):
 
         self.simple_header_list = [
                 {Qt.DisplayRole: _('Code'), Qt.ToolTipRole: _('Currency Code')},
-                {Qt.DisplayRole: _('Currency'), Qt.ToolTipRole: _('Currency Name')},
-                {Qt.DisplayRole: _('Initialized'), Qt.ToolTipRole: _('Whether the currency has been used')}
+                {Qt.DisplayRole: _('Currency'), Qt.ToolTipRole: _('Currency Name'), ResizeModeRole: QHeaderView.Stretch},
+                {Qt.DisplayRole: _('Initialized'), Qt.ToolTipRole: _('Whether the currency has been used')},
+                {Qt.DisplayRole: _('Txs'), Qt.ToolTipRole: _('Transactions'), ResizeModeRole: QHeaderView.ResizeToContents}
         ]
         self.verbose_header_list = list(self.simple_header_list)
         self.verbose_header_list.extend([
-                {Qt.DisplayRole: _('Index'), Qt.ToolTipRole: _('BIP 44 Chain Index')}
+                {Qt.DisplayRole: _('Index'), Qt.ToolTipRole: _('BIP 44 Chain Index'), ResizeModeRole: QHeaderView.ResizeToContents}
         ])
 
         self.header_list = self.verbose_header_list if self.is_verbose() else self.simple_header_list
@@ -39,7 +42,7 @@ class CurrenciesModel(QAbstractTableModel):
         self.endResetModel()
 
     def columnCount(self, parent=QModelIndex()):
-        return 4 if self.is_verbose() else 3
+        return 5 if self.is_verbose() else 4
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.chains)
@@ -62,6 +65,11 @@ class CurrenciesModel(QAbstractTableModel):
         data = None
         chain = self.chains[index.row()]
         col = index.column()
+
+        is_initialized = False
+        if self.gui.wallet and self.gui.wallet.storage.get_above_chain(chain.code):
+            is_initialized = True
+
         if col == 0:
             if role in [Qt.DisplayRole, Qt.ToolTipRole]:
                 data = chain.code
@@ -70,11 +78,13 @@ class CurrenciesModel(QAbstractTableModel):
                 data = chain.coin_name
         elif col == 2:
             if role in [Qt.DisplayRole, Qt.ToolTipRole]:
-                is_initialized = True
-                if not self.gui.wallet.storage.get_above_chain(chain.code):
-                    is_initialized = False
                 data = y_or_n(is_initialized)
         elif col == 3:
+            if role in [Qt.DisplayRole, Qt.ToolTipRole]:
+                data = 0
+                if is_initialized:
+                    data = len(self.gui.wallet.storage.get_for_chain(chain.code, 'transactions', []))
+        elif col == 4:
             if role in [Qt.DisplayRole, Qt.ToolTipRole]:
                 data = chain.cls.chain_index
 
@@ -98,20 +108,22 @@ class ChangeCurrencyDialog(QDialog):
         self.view.setAlternatingRowColors(True)
         self.view.setWordWrap(True)
         self.view.horizontalHeader().setHighlightSections(False)
-        self.view.horizontalHeader().setResizeMode(1, QHeaderView.Stretch)
         self.view.verticalHeader().setDefaultSectionSize(22)
         self.view.verticalHeader().setVisible(False)
         self.view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.view.setSelectionMode(QAbstractItemView.SingleSelection)
         self.view.sortByColumn(0, Qt.AscendingOrder)
-        self.view.setMinimumWidth(400)
 
         self.main_layout = QVBoxLayout()
         self.main_layout.addWidget(self.view)
         self.main_layout.addLayout(Buttons(CloseButton(self), OkButton(self)))
         self.setLayout(self.main_layout)
 
+        self.setMinimumWidth(450)
         self.setWindowTitle(_('Change Currency'))
+
+        # Resize columns
+        self.set_verbosity(self.is_verbose())
 
     def selected_chain(self):
         idx = self.proxy_model.mapToSource(self.view.selectedIndexes()[0])
@@ -121,4 +133,8 @@ class ChangeCurrencyDialog(QDialog):
         return self.model.is_verbose()
 
     def set_verbosity(self, verbose):
-        return self.model.set_verbosity(verbose)
+        self.model.set_verbosity(verbose)
+        for i in range(self.model.columnCount()):
+            resize_mode = self.model.headerData(i, Qt.Horizontal, ResizeModeRole)
+            if resize_mode:
+                self.view.horizontalHeader().setResizeMode(i, resize_mode)

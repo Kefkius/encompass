@@ -159,6 +159,9 @@ class WalletStorage(PrintError):
             if save:
                 self.write()
 
+    def get_for_chain(self, chaincode, key, default=None):
+        return self.get_above_chain(chaincode, {}).get(key, default)
+
     def write(self):
         assert not threading.currentThread().isDaemon()
         if not self.modified:
