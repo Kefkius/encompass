@@ -35,6 +35,9 @@ class Blockchain(util.PrintError):
         self.local_height = 0
         self.set_local_height()
 
+    def diagnostic_name(self):
+        return ' - '.join([super(Blockchain, self).diagnostic_name(), self.active_chain.code])
+
     def height(self):
         return self.local_height
 

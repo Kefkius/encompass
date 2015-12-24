@@ -285,6 +285,9 @@ class Network(util.DaemonThread):
         if self.plugins:
             self.plugins.set_network(self)
 
+    def diagnostic_name(self):
+        return ' - '.join([super(Network, self).diagnostic_name(), self.active_chain.code])
+
     def register_callback(self, event, callback):
         with self.lock:
             self.callbacks[event].append(callback)

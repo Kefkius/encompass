@@ -560,6 +560,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             icon = QIcon(":icons/status_disconnected.png")
 
         self.tray.setToolTip("%s (%s)" % (text, self.wallet.basename()))
+        self.chain_label.setText(self.wallet_chain().code)
         self.balance_label.setText(text)
         self.status_button.setIcon( icon )
 
@@ -1823,6 +1824,8 @@ class ElectrumWindow(QMainWindow, PrintError):
         sb.setFixedHeight(35)
         qtVersion = qVersion()
 
+        self.chain_label = QLabel("")
+        sb.addWidget(self.chain_label)
         self.balance_label = QLabel("")
         sb.addWidget(self.balance_label)
 
