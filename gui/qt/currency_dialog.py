@@ -12,8 +12,34 @@ class CurrenciesModel(QAbstractTableModel):
         self.gui = main_window
         self.chains = chainparams.known_chains
 
+        self.simple_header_list = [
+                {Qt.DisplayRole: _('Code'), Qt.ToolTipRole: _('Currency Code')},
+                {Qt.DisplayRole: _('Currency'), Qt.ToolTipRole: _('Currency Name')},
+                {Qt.DisplayRole: _('Initialized'), Qt.ToolTipRole: _('Whether the currency has been used')}
+        ]
+        self.verbose_header_list = list(self.simple_header_list)
+        self.verbose_header_list.extend([
+                {Qt.DisplayRole: _('Index'), Qt.ToolTipRole: _('BIP 44 Chain Index')}
+        ])
+
+        self.header_list = self.verbose_header_list if self.is_verbose() else self.simple_header_list
+
+    def is_verbose(self):
+        return self.gui.config.get_above_chain('verbose_currency_dialog', False)
+
+    def set_verbosity(self, verbose):
+        old = self.is_verbose()
+        self.gui.config.set_key_above_chain('verbose_currency_dialog', verbose)
+        verbose = self.is_verbose()
+        if old == verbose:
+            return
+
+        self.beginResetModel()
+        self.header_list = self.verbose_header_list if verbose else self.simple_header_list
+        self.endResetModel()
+
     def columnCount(self, parent=QModelIndex()):
-        return 3
+        return 4 if self.is_verbose() else 3
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.chains)
@@ -22,14 +48,8 @@ class CurrenciesModel(QAbstractTableModel):
         if orientation != Qt.Horizontal:
             return None
 
-        headers = [
-                {Qt.DisplayRole: _('Code'), Qt.ToolTipRole: _('Currency Code')},
-                {Qt.DisplayRole: _('Currency'), Qt.ToolTipRole: _('Currency Name')},
-                {Qt.DisplayRole: _('Initialized'), Qt.ToolTipRole: _('Whether the currency has been used')}
-        ]
-
         try:
-            data = headers[section][role]
+            data = self.header_list[section][role]
             return data
         except (IndexError, KeyError):
             return None
@@ -54,6 +74,9 @@ class CurrenciesModel(QAbstractTableModel):
                 if not self.gui.wallet.storage.get_above_chain(chain.code):
                     is_initialized = False
                 data = y_or_n(is_initialized)
+        elif col == 3:
+            if role in [Qt.DisplayRole, Qt.ToolTipRole]:
+                data = chain.cls.chain_index
 
         return data
 
@@ -93,3 +116,9 @@ class ChangeCurrencyDialog(QDialog):
     def selected_chain(self):
         idx = self.proxy_model.mapToSource(self.view.selectedIndexes()[0])
         return self.model.chaincode_for_index(idx)
+
+    def is_verbose(self):
+        return self.model.is_verbose()
+
+    def set_verbosity(self, verbose):
+        return self.model.set_verbosity(verbose)

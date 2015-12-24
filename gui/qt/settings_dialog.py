@@ -233,6 +233,12 @@ class GlobalOptions(QWidget):
         showtx_cb.setToolTip(_('Display the details of your transactions before signing it.'))
         form.addRow(showtx_cb)
 
+        verbose_cur_dialog = QCheckBox(_('Verbose Currency Dialog'))
+        verbose_cur_dialog.setChecked(gui.verbose_currency_dialog())
+        verbose_cur_dialog.stateChanged.connect(lambda x: gui.set_currency_dialog_verbosity(verbose_cur_dialog.isChecked()))
+        verbose_cur_dialog.setToolTip(_('Display additional information about currencies in the Currency Dialog.'))
+        form.addRow(verbose_cur_dialog)
+
         self.setLayout(form)
 
 

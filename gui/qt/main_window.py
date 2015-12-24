@@ -189,6 +189,9 @@ class ElectrumWindow(QMainWindow, PrintError):
             # set initial message
             self.console.showMessage(self.network.banner)
 
+        self.change_currency_window = ChangeCurrencyDialog(self)
+        self.change_currency_window.view.activated.connect(self.on_currency_selected)
+
         self.payment_request = None
         self.qr_window = None
         self.not_enough_funds = False
@@ -2687,11 +2690,13 @@ class ElectrumWindow(QMainWindow, PrintError):
         vbox.addLayout(Buttons(CloseButton(d)))
         d.exec_()
 
-    def change_currency_dialog(self):
-        if not hasattr(self, 'change_currency_window'):
-            self.change_currency_window = ChangeCurrencyDialog(self)
-            self.change_currency_window.view.activated.connect(self.on_currency_selected)
+    def verbose_currency_dialog(self):
+        return self.change_currency_window.is_verbose()
 
+    def set_currency_dialog_verbosity(self, verbose):
+        self.change_currency_window.set_verbosity(verbose)
+
+    def change_currency_dialog(self):
         if not self.change_currency_window.exec_(): return
         self.on_currency_selected()
 
