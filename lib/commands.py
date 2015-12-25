@@ -727,6 +727,8 @@ def get_parser():
     group.add_argument("-P", "--portable", action="store_true", dest="portable", default=False, help="Use local 'encompass_data' directory")
     group.add_argument("-w", "--wallet", dest="wallet_path", help="wallet path")
     group.add_argument("-o", "--offline", action="store_true", dest="offline", default=False, help="Run offline")
+    group.add_argument("-n", "--chain", dest="override_chain", choices=chainparams.known_chain_codes,
+            help="Use a specific chain instead of the config file's chain.")
     # create main parser
     parser = argparse.ArgumentParser(
         parents=[parent_parser],

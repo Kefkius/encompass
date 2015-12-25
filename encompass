@@ -250,7 +250,9 @@ def init_cmdline(config):
     return cmd, password
 
 
-def run_command(config, network, password):
+def run_command(config, network_controller, password):
+    if config.get('override_chain'):
+        config.set_active_chain_code(config.get('override_chain'), False)
     cmdname = config.get('cmd')
     cmd = known_commands[cmdname]
     # instanciate wallet for command-line
@@ -269,7 +271,7 @@ def run_command(config, network, password):
     # options
     args += map(lambda x: config.get(x), cmd.options)
 
-    cmd_runner = Commands(config, wallet, network)
+    cmd_runner = Commands(config, wallet, network_controller)
     cmd_runner.password = password
     func = getattr(cmd_runner, cmd.name)
     result = func(*args)
@@ -430,6 +432,8 @@ if __name__ == '__main__':
     # make sure that certificates are here
     assert os.path.exists(requests.utils.DEFAULT_CA_BUNDLE_PATH)
 
+    chainparams.init_chains()
+
     # on osx, delete Process Serial Number arg generated for apps launched in Finder
     sys.argv = filter(lambda x: not x.startswith('-psn'), sys.argv)
 
@@ -473,7 +477,6 @@ if __name__ == '__main__':
         config_options['encompass_path'] = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'encompass_data')
 
     set_verbosity(config_options.get('verbose'))
-    chainparams.init_chains()
 
     # check uri
     uri = config_options.get('url')

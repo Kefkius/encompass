@@ -105,12 +105,12 @@ class SimpleConfig(object):
         if self.fixup_config_keys(self.user_config, keypairs):
             self.save_user_config()
 
-    def set_active_chain_code(self, chaincode):
+    def set_active_chain_code(self, chaincode, save = True):
         if not chainparams.is_known_chain(chaincode):
             return False
         if self.get_above_chain(chaincode, None) is None:
             self.set_key_above_chain(chaincode, {})
-        self.set_key_above_chain('active_chain', chaincode)
+        self.set_key_above_chain('active_chain', chaincode, save)
         chainparams.set_active_chain(chaincode)
 
     def get_active_chain_code(self, default=None):
