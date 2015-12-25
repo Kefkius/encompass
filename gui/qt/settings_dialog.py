@@ -128,7 +128,7 @@ class ChainOptions(QWidget):
             if gui.base_unit() == unit_result:
                 return
             gui.decimal_point = gui.wallet_chain().base_units[unit_result]
-            self.config.set_key('decimal_point', self.decimal_point, True)
+            self.config.set_key('decimal_point', gui.decimal_point, True)
             gui.history_list.update()
             gui.receive_list.update()
             gui.address_list.update()

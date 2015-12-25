@@ -2727,6 +2727,6 @@ class ElectrumWindow(QMainWindow, PrintError):
             # set initial message
             self.console.showMessage(self.network.banner)
 
-        wallet = self.gui_object.load_wallet_file(self.config.get_wallet_path())
+        wallet = self.gui_object.load_wallet_file(self.wallet.storage.path)
         self.load_wallet(wallet)
 

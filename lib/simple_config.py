@@ -137,10 +137,13 @@ class SimpleConfig(object):
         return out
 
     def set_key(self, key, value, save = True):
+        if not self.is_modifiable(key):
+            print_stderr("Warning: not changing config key '%s' set on the command line" % key)
+            return
         chaincode = self.get_active_chain_code()
         chain_config = self.get_above_chain(chaincode, {})
         chain_config[key] = value
-        self.set_key_above_chain(chaincode, chain_config)
+        self.set_key_above_chain(chaincode, chain_config, save)
 
     def get(self, key, default=None):
         chaincode = self.get_active_chain_code()
