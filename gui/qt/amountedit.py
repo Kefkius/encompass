@@ -71,16 +71,13 @@ class AmountEdit(MyLineEdit):
 
 class BTCAmountEdit(AmountEdit):
 
-    def __init__(self, decimal_point, is_int = False, parent=None):
+    def __init__(self, decimal_point, base_unit, is_int = False, parent=None):
         AmountEdit.__init__(self, self._base_unit, is_int, parent)
+        self.unit = base_unit
         self.decimal_point = decimal_point
 
     def _base_unit(self):
-        p = self.decimal_point()
-        for k, v in chainparams.param('base_units').items():
-            if v == p:
-                return k
-        raise Exception('Unknown base unit')
+        return self.unit()
 
     def get_amount(self):
         try:
@@ -98,4 +95,4 @@ class BTCAmountEdit(AmountEdit):
 
 class BTCkBEdit(BTCAmountEdit):
     def _base_unit(self):
-        return BTCAmountEdit._base_unit(self) + '/kB'
+        return '/'.join([BTCAmountEdit._base_unit(self), 'kB'])

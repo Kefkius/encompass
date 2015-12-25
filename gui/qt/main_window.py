@@ -521,7 +521,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         return self.decimal_point
 
     def base_unit(self):
-        units = chainparams.param('base_units')
+        units = self.wallet_chain().base_units
         for k, v in units.items():
             if v == self.decimal_point:
                 return k
@@ -620,7 +620,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         grid.addWidget(self.receive_message_e, 1, 1, 1, -1)
         self.receive_message_e.textChanged.connect(self.update_receive_qr)
 
-        self.receive_amount_e = BTCAmountEdit(self.get_decimal_point)
+        self.receive_amount_e = BTCAmountEdit(self.get_decimal_point, self.base_unit)
         grid.addWidget(QLabel(_('Requested amount')), 2, 0)
         grid.addWidget(self.receive_amount_e, 2, 1)
         self.receive_amount_e.textChanged.connect(self.update_receive_qr)
@@ -932,7 +932,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         grid.setColumnStretch(3, 1)
 
         from paytoedit import PayToEdit
-        self.amount_e = BTCAmountEdit(self.get_decimal_point)
+        self.amount_e = BTCAmountEdit(self.get_decimal_point, self.base_unit)
         self.payto_e = PayToEdit(self)
         msg = _('Recipient of the funds.') + '\n\n'\
               + _('You may enter a Bitcoin address, a label from your list of contacts (a list of completions will be proposed), or an alias (email-like address that forwards to a Bitcoin address)')
@@ -972,7 +972,7 @@ class ElectrumWindow(QMainWindow, PrintError):
               + _('The amount of fee can be decided freely by the sender. However, transactions with low fees take more time to be processed.') + '\n\n'\
               + _('A suggested fee is automatically added to this field. You may override it. The suggested fee increases with the size of the transaction.')
         self.fee_e_label = HelpLabel(_('Fee'), msg)
-        self.fee_e = BTCAmountEdit(self.get_decimal_point)
+        self.fee_e = BTCAmountEdit(self.get_decimal_point, self.base_unit)
         grid.addWidget(self.fee_e_label, 5, 0)
         grid.addWidget(self.fee_e, 5, 1)
 
@@ -1217,7 +1217,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             self.show_message(str(e))
             return
 
-        if tx.get_fee() < chainparams.param('MIN_RELAY_TX_FEE') and tx.requires_fee(self.wallet):
+        if tx.get_fee() < self.wallet_chain().MIN_RELAY_TX_FEE and tx.requires_fee(self.wallet):
             QMessageBox.warning(self, _('Error'), _("This transaction requires a higher fee, or it will not be propagated by the network."), _('OK'))
             return
 

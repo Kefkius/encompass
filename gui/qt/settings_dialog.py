@@ -36,8 +36,8 @@ class ChainOptions(QWidget):
         msg = _('Fee per kilobyte of transaction.') + '\n' \
               + _('If you enable dynamic fees, this parameter will be used as upper bound.')
         fee_label = HelpLabel(_('Transaction fee per kb') + ':', msg)
-        fee_e = BTCkBEdit(gui.get_decimal_point)
-        fee_e.setAmount(self.config.get('fee_per_kb', chainparams.param('RECOMMENDED_FEE')))
+        fee_e = BTCkBEdit(gui.get_decimal_point, gui.base_unit)
+        fee_e.setAmount(self.config.get('fee_per_kb', gui.wallet_chain().RECOMMENDED_FEE))
         def on_fee(is_done):
             if self.config.get('dynamic_fees'):
                 return
@@ -115,7 +115,7 @@ class ChainOptions(QWidget):
         SSL_id_e.setReadOnly(True)
         form.addRow(SSL_id_label, SSL_id_e)
 
-        units = chainparams.param('base_units').keys()
+        units = gui.wallet_chain().base_units.keys()
         msg = _('Base unit of your wallet.')\
               + '\n' \
               + _(' These settings affects the fields in the Send tab')+' '
@@ -127,7 +127,7 @@ class ChainOptions(QWidget):
             unit_result = units[unit_combo.currentIndex()]
             if gui.base_unit() == unit_result:
                 return
-            gui.decimal_point = chainparams.param('base_units')[unit_result]
+            gui.decimal_point = gui.wallet_chain().base_units[unit_result]
             self.config.set_key('decimal_point', self.decimal_point, True)
             gui.history_list.update()
             gui.receive_list.update()

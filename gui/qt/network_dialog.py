@@ -184,7 +184,7 @@ class NetworkDialog(QDialog):
     def change_protocol(self, use_ssl):
         p = 's' if use_ssl else 't'
         host = unicode(self.server_host.text())
-        pp = self.servers.get(host, chainparams.param('DEFAULT_PORTS'))
+        pp = self.servers.get(host, self.network.active_chain.DEFAULT_PORTS)
         if p not in pp.keys():
             p = pp.keys()[0]
         port = pp[p]
@@ -198,7 +198,7 @@ class NetworkDialog(QDialog):
 
     def change_server(self, host, protocol):
 
-        pp = self.servers.get(host, chainparams.param('DEFAULT_PORTS'))
+        pp = self.servers.get(host, self.network.active_chain.DEFAULT_PORTS)
         if protocol and protocol not in protocol_letters:
                 protocol = None
         if protocol:
