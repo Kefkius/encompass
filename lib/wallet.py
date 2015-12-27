@@ -459,7 +459,7 @@ class Abstract_Wallet(PrintError):
         sec = keys[0]
         key = regenerate_key(sec)
         compressed = is_compressed(sec)
-        return key.sign_message(message, compressed, address)
+        return key.sign_message(self.storage.param('message_magic'), message, compressed, address)
 
     def decrypt_message(self, pubkey, message, password):
         address = public_key_to_bc_address(pubkey.decode('hex'))

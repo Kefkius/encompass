@@ -87,6 +87,8 @@ class CryptoCur(object):
     ext_pub_version = ''
     # Extended privkey base58 prefix
     ext_priv_version = ''
+    # "Magic" bytes for signing/verifying
+    message_magic = ''
 
     ### Constants ###
 

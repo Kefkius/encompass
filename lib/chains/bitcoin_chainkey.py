@@ -17,6 +17,7 @@ class Bitcoin(CryptoCur):
     wif_version = 128
     ext_pub_version = '0488b21e'
     ext_priv_version = '0488ade4'
+    message_magic = 'Bitcoin Signed Message:\n'
 
     DUST_THRESHOLD = 5430
     MIN_RELAY_TX_FEE = 1000

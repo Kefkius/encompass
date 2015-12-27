@@ -336,15 +336,16 @@ from ecdsa.curves import SECP256k1
 from ecdsa.ellipticcurve import Point
 from ecdsa.util import string_to_number, number_to_string
 
-def msg_magic(message):
+def msg_magic(magic, message):
     varint = var_int(len(message))
     encoded_varint = "".join([chr(int(varint[i:i+2], 16)) for i in xrange(0, len(varint), 2)])
-    return "\x18Bitcoin Signed Message:\n" + encoded_varint + message
+    prefix = ''.join([hex(len(magic))[2:].decode('hex'), magic])
+    return ''.join([prefix, encoded_varint, message])
 
 
-def verify_message(address, signature, message):
+def verify_message(magic, address, signature, message):
     try:
-        EC_KEY.verify_message(address, signature, message)
+        EC_KEY.verify_message(magic, address, signature, message)
         return True
     except Exception as e:
         print_error("Verification error: {0}".format(e))
@@ -456,12 +457,12 @@ class EC_KEY(object):
         assert public_key.verify_digest(signature, msg_hash, sigdecode = ecdsa.util.sigdecode_string)
         return signature
 
-    def sign_message(self, message, compressed, address):
-        signature = self.sign(Hash(msg_magic(message)))
+    def sign_message(self, magic, message, compressed, address):
+        signature = self.sign(Hash(msg_magic(magic, message)))
         for i in range(4):
             sig = chr(27 + i + (4 if compressed else 0)) + signature
             try:
-                self.verify_message(address, sig, message)
+                self.verify_message(magic, address, sig, message)
                 return sig
             except Exception:
                 continue
@@ -469,7 +470,7 @@ class EC_KEY(object):
             raise Exception("error: cannot sign message")
 
     @classmethod
-    def verify_message(self, address, sig, message):
+    def verify_message(self, magic, address, sig, message):
         if len(sig) != 65:
             raise Exception("Wrong encoding")
         nV = ord(sig[0])
@@ -482,7 +483,7 @@ class EC_KEY(object):
             compressed = False
         recid = nV - 27
 
-        h = Hash(msg_magic(message))
+        h = Hash(msg_magic(magic, message))
         public_key = MyVerifyingKey.from_signature(sig[1:], recid, h, curve = SECP256k1)
         # check public key
         public_key.verify_digest(sig[1:], h, sigdecode = ecdsa.util.sigdecode_string)

@@ -2075,7 +2075,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         message = unicode(message.toPlainText())
         message = message.encode('utf-8')
         sig = base64.b64decode(str(signature.toPlainText()))
-        if bitcoin.verify_message(address.text(), sig, message):
+        if bitcoin.verify_message(self.wallet_chain().message_magic, address.text(), sig, message):
             self.show_message(_("Signature verified"))
         else:
             self.show_message(_("Error: wrong signature"))
