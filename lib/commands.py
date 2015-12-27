@@ -608,6 +608,24 @@ class Commands:
         for k in self.wallet.receive_requests.keys():
             self.wallet.remove_payment_request(k, self.config)
 
+    @command('')
+    def getchain(self):
+        """Get the default chain that Encompass is using."""
+        return self.config.get_active_chain_code()
+
+    @command('')
+    def setchain(self, chaincode):
+        """Set the default chain that Encompass is using."""
+        if not chainparams.is_known_chain(chaincode):
+            raise BaseException('Invalid chain code.')
+        self.config.set_key_above_chain('active_chain', chaincode)
+        return True
+
+    @command('')
+    def listchains(self):
+        """List the chains that Encompass supports."""
+        return sorted(chainparams.known_chain_codes)
+
 
 param_descriptions = {
     'privkey': 'Private key. Type \'?\' to get a prompt.',
