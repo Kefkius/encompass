@@ -63,16 +63,16 @@ class AddressDialog(QDialog):
 
         vbox.addWidget(QLabel(_("History")))
         self.hw = HistoryWidget(self.parent)
+        self.hw.get_domain = self.get_domain
         vbox.addWidget(self.hw)
 
         vbox.addStretch(1)
         vbox.addLayout(Buttons(CloseButton(self)))
         self.format_amount = self.parent.format_amount
+        self.hw.update()
 
-        h = self.wallet.get_history([self.address])
-        self.hw.update(h)
-
-
+    def get_domain(self):
+        return [self.address]
 
     def show_qr(self):
         text = self.address
@@ -80,6 +80,4 @@ class AddressDialog(QDialog):
             self.parent.show_qrcode(text, 'Address')
         except Exception as e:
             self.show_message(str(e))
-
-
 
