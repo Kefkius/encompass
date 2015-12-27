@@ -104,8 +104,7 @@ class NetworkController(util.DaemonThread):
             if chaincode in self.networks:
                 return self.networks[chaincode]
             # Start a Network instance if necessary
-            config = self.config.get_above_chain(chaincode)
-            network = self.networks[chaincode] = Network(config, self.plugins, chaincode)
+            network = self.networks[chaincode] = Network(self.config, self.plugins, chaincode)
             network.start()
             timer = self.timers[chaincode] = ChainTimer(self, chaincode, self.chain_interval)
             timer.start()
@@ -231,12 +230,12 @@ class Network(util.DaemonThread):
         util.DaemonThread.__init__(self)
         self.config = SimpleConfig(config) if type(config) == type({}) else config
         self.active_chain = chainparams.get_chain_instance(chaincode)
-        self.num_server = 8 if not self.config.get('oneserver') else 0
+        self.num_server = 8 if not self.get_config_option('oneserver') else 0
         self.blockchain = Blockchain(self.config, self)
         # A deque of interface header requests, processed left-to-right
         self.bc_requests = deque()
         # Server for addresses and transactions
-        self.default_server = self.config.get('server')
+        self.default_server = self.get_config_option('server')
         # Sanitize default server
         try:
             deserialize_server(self.default_server)
@@ -276,17 +275,25 @@ class Network(util.DaemonThread):
         # to or have an ongoing connection with
         self.interface = None
         self.interfaces = {}
-        self.auto_connect = self.config.get('auto_connect', False)
+        self.auto_connect = self.get_config_option('auto_connect', False)
         self.connecting = set()
         self.socket_queue = Queue.Queue()
         self.start_network(deserialize_server(self.default_server)[2],
-                           deserialize_proxy(self.config.get('proxy')))
+                           deserialize_proxy(self.get_config_option('proxy')))
         self.plugins = plugins
         if self.plugins:
             self.plugins.set_network(self)
 
     def diagnostic_name(self):
         return ' - '.join([super(Network, self).diagnostic_name(), self.active_chain.code])
+
+    def get_config_option(self, key, default=None):
+        """Convenience method for getting a chain-specific option."""
+        return self.config.get_for_chain(self.active_chain.code, key, default)
+
+    def set_config_option(self, key, value, save = True):
+        """Convenience method for setting a chain-specific option."""
+        return self.config.set_key_for_chain(self.active_chain.code, key, value, save)
 
     def register_callback(self, event, callback):
         with self.lock:
@@ -477,11 +484,11 @@ class Network(util.DaemonThread):
     def set_parameters(self, host, port, protocol, proxy, auto_connect):
         proxy_str = serialize_proxy(proxy)
         server = serialize_server(host, port, protocol)
-        self.config.set_key('auto_connect', auto_connect, False)
-        self.config.set_key("proxy", proxy_str, False)
-        self.config.set_key("server", server, True)
+        self.set_config_option('auto_connect', auto_connect, False)
+        self.set_config_option("proxy", proxy_str, False)
+        self.set_config_option("server", server, True)
         # abort if changes were not allowed by config
-        if self.config.get('server') != server or self.config.get('proxy') != proxy_str:
+        if self.get_config_option('server') != server or self.get_config_option('proxy') != proxy_str:
             return
 
         self.auto_connect = auto_connect

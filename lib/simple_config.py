@@ -141,9 +141,7 @@ class SimpleConfig(object):
             print_stderr("Warning: not changing config key '%s' set on the command line" % key)
             return
         chaincode = self.get_active_chain_code()
-        chain_config = self.get_above_chain(chaincode, {})
-        chain_config[key] = value
-        self.set_key_above_chain(chaincode, chain_config, save)
+        self.set_key_for_chain(chaincode, key, value, save)
 
     def get(self, key, default=None):
         chaincode = self.get_active_chain_code()
@@ -152,6 +150,19 @@ class SimpleConfig(object):
             if out is None:
                 out = self.user_config.get(chaincode, {}).get(key, default)
         return out
+
+    def set_key_for_chain(self, chaincode, key, value, save = True):
+        """Set a key for a specific chain."""
+        if not self.is_modifiable(key):
+            print_stderr("Warning: not changing config key '%s' set on the command line" % key)
+            return
+        chain_config = self.get_above_chain(chaincode, {})
+        chain_config[key] = value
+        self.set_key_above_chain(chaincode, chain_config, save)
+
+    def get_for_chain(self, chaincode, key, default=None):
+        chain_config = self.get_above_chain(chaincode, {})
+        return chain_config.get(key, default)
 
     def is_modifiable(self, key):
         return not key in self.cmdline_options
