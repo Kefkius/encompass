@@ -223,10 +223,6 @@ def deserialize(raw, active_chain=None):
     return d
 
 
-def push_script(x):
-    return op_push(len(x)/2) + x
-
-
 class Transaction:
 
     def __str__(self):
@@ -337,19 +333,17 @@ class Transaction:
         return op_m + ''.join(keylist) + op_n + 'ae'
 
     @classmethod
-    def pay_script(self, output_type, addr):
+    def pay_script(cls, output_type, addr, active_chain=None):
+        if active_chain is None:
+            active_chain = chainparams.get_active_chain()
         if output_type == 'script':
             return addr.encode('hex')
         elif output_type == 'address':
             addrtype, hash_160 = bc_address_to_hash_160(addr)
-            if addrtype == 0:
-                script = '76a9'                                      # op_dup, op_hash_160
-                script += push_script(hash_160.encode('hex'))
-                script += '88ac'                                     # op_equalverify, op_checksig
-            elif addrtype == 5:
-                script = 'a9'                                        # op_hash_160
-                script += push_script(hash_160.encode('hex'))
-                script += '87'                                       # op_equal
+            if addrtype == active_chain.p2pkh_version:
+                script = p2pkh_script(hash_160)
+            elif addrtype == active_chain.p2sh_version:
+                script = p2sh_script(hash_160)
             else:
                 raise
         else:

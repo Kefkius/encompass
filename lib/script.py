@@ -1,4 +1,8 @@
 """Bitcoin scripting."""
+from util_coin import op_push
+
+def push_script(x):
+    return op_push(len(x)/2) + x
 
 #
 # Workalike python implementation of Bitcoin's CDataStream class.
@@ -259,3 +263,20 @@ def match_decoded(decoded, to_match):
             return False
     return True
 
+def p2pkh_script(hash_160):
+    """Create a Pay-To-Public-Key-Hash script."""
+    if len(hash_160) == 20:
+        hash_160 = hash_160.encode('hex')
+    s = ['76a9']                    # op_dup, op_hash160
+    s.append(push_script(hash_160))
+    s.append('88ac')                # op_equalverify, op_checksig
+    return ''.join(s)
+
+def p2sh_script(hash_160):
+    """Create a Pay-To-Script-Hash script."""
+    if len(hash_160) == 20:
+        hash_160 = hash_160.encode('hex')
+    s = ['a9']                      # op_hash160
+    s.append(push_script(hash_160))
+    s.append('87')                  # op_equal
+    return ''.join(s)
