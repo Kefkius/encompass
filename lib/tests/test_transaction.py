@@ -12,6 +12,7 @@ chainparams.init_chains()
 class TestTransaction(unittest.TestCase):
 
     def test_tx_unsigned(self):
+        chainparams.set_active_chain('BTC')
         expected = {
             'inputs': [{
                 'address': '1446oU3z268EeFgfcwJv6X2VBXHfoYxfuD',
@@ -57,6 +58,7 @@ class TestTransaction(unittest.TestCase):
         self.assertEquals(transaction.deserialize(blob), expected)
 
     def test_tx_signed(self):
+        chainparams.set_active_chain('BTC')
         expected = {
             'inputs': [{
                 'address': '1446oU3z268EeFgfcwJv6X2VBXHfoYxfuD',
@@ -101,6 +103,34 @@ class TestTransaction(unittest.TestCase):
 
         res = transaction.parse_xpub('fd007d260305ef27224bbcf6cf5238d2b3638b5a78d5')
         self.assertEquals(res, (None, '1CQj15y1N7LDHp7wTt28eoD1QhHgFgxECH'))
+
+    def test_peercoin_deserialize_and_serialize(self):
+        chainparams.set_active_chain('PPC')
+        rawtx = '0100000058e4615501a367e883a383167e64c84e9c068ba5c091672e434784982f877eede589cb7e53000000006a473044022043b9aee9187effd7e6c7bc444b09162570f17e36b4a9c02cf722126cc0efa3d502200b3ba14c809fa9a6f7f835cbdbbb70f2f43f6b30beaf91eec6b8b5981c80cea50121025edf500f18f9f2b3f175f823fa996fbb2ec52982a9aeb1dc2e388a651054fb0fffffffff0257be0100000000001976a91495efca2c6a6f0e0f0ce9530219b48607a962e77788ac45702000000000001976a914f28abfb465126d6772dcb4403b9e1ad2ea28a03488ac00000000'
+        tx = transaction.Transaction(rawtx)
+        d = tx.deserialize()
+        self.assertEqual(d['version'], 1)
+        self.assertEqual(len(d['inputs']), 1)
+        self.assertEqual(len(d['outputs']), 2)
+        self.assertEqual(d['locktime'], 0)
+        self.assertEqual(d['timestamp'], 1432478808)
+
+        self.assertEqual(tx.serialize(), rawtx)
+
+    def test_clams_deserialize_and_serialize(self):
+        chainparams.set_active_chain('CLAMS')
+        rawtx = '02000000704d4a5501faaac09e923eb154c4a1692a69f40c6c7570ee508c5cef1d85325a5caeabd8f74a0100008a47304402205b628da48fe51c0d33fdb496b942690b1c0a6f8b295c431fe80c296b4e19af8702203e33521e4b3cb36e0f82f75930c8eeb5cd28d5189ac10a9b119e967f8cee0d53014104be46fb68e65df4b60ccf5503eed8ccbd0939543205f0ecaaf2343fd2301e4ef7bce423461bee2912f438466a95d125bd43d4b55bf809bd3efb9614bac9fe7b25ffffffff0200000000000000000040e1a65500000000434104be46fb68e65df4b60ccf5503eed8ccbd0939543205f0ecaaf2343fd2301e4ef7bce423461bee2912f438466a95d125bd43d4b55bf809bd3efb9614bac9fe7b25ac000000001568747470733a2f2f4a7573742d446963652e636f6d'
+        tx = transaction.Transaction(rawtx)
+        d = tx.deserialize()
+
+        self.assertEqual(d['version'], 2)
+        self.assertEqual(len(d['inputs']), 1)
+        self.assertEqual(len(d['outputs']), 2)
+        self.assertEqual(d['locktime'], 0)
+        self.assertEqual(d['timestamp'], 1430932848)
+        self.assertEqual(d['clamspeech'], 'https://Just-Dice.com')
+
+        self.assertEqual(tx.serialize(), rawtx)
 
 
 class NetworkMock(object):

@@ -362,6 +362,8 @@ class Transaction:
                 script = p2sh_script(hash_160)
             else:
                 raise
+        elif output_type == 'pubkey':
+            return ''.join([ push_script(addr), 'ac' ])
         else:
             raise
         return script
