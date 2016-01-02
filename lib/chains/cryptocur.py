@@ -283,5 +283,31 @@ class CryptoCur(object):
     def get_target(self, height, chain=None):
         pass
 
+    def deserialize_tx_fields(self, vds, fields, d):
+        """This method provides a way for chains to modify the deserialization process.
 
+        Args:
+            vds (BCDataStream): Data stream.
+            fields (list): List of 2-tuples of the form (name, action), where:
+                - name (str): Attribute name.
+                - action: Function to call that returns the value. Usually a BCDataStream method.
+            d (dict): Dict used to hold deserialized values.
+        """
+        pass
+
+    def serialize_tx_fields(self, tx, for_sig, fields):
+        """This method provides a way for chains to modify the serialization process.
+
+        Args:
+            tx (Transaction): Transaction instance.
+            for_sig: Serialization purpose. Can be any of the following:
+                - -1: Do not sign, estimate length.
+                - i >= 0: Serialized tx for signing input i.
+                - None: Add all known signatures.
+            fields (list): List of 2-tuples of the form (name, data), where:
+                - name (str): Attribute name.
+                - data (list): Empty list containing the data for that field. If data is added to
+                    this list, the Transaction instance will use that data instead of supplying its own.
+        """
+        pass
 

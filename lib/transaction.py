@@ -212,14 +212,28 @@ def deserialize(raw, active_chain=None):
         active_chain = chainparams.get_active_chain()
     vds = BCDataStream()
     vds.write(raw.decode('hex'))
+
+    fields = [
+        ('version', vds.read_int32),
+        ('inputs', 'parse_inputs'),
+        ('outputs', 'parse_outputs'),
+        ('locktime', vds.read_uint32)
+    ]
     d = {}
-    start = vds.read_cursor
-    d['version'] = vds.read_int32()
-    n_vin = vds.read_compact_size()
-    d['inputs'] = list(parse_input(vds) for i in xrange(n_vin))
-    n_vout = vds.read_compact_size()
-    d['outputs'] = list(parse_output(vds,i, active_chain) for i in xrange(n_vout))
-    d['lockTime'] = vds.read_uint32()
+
+    # Allow chain to modify deserialization process.
+    active_chain.deserialize_tx_fields(vds, fields, d)
+
+    for name, action in fields:
+        # Special case - inputs.
+        if name == 'inputs':
+            d[name] = list(parse_input(vds) for i in xrange(vds.read_compact_size()))
+        # Special case - outputs.
+        elif name == 'outputs':
+            d[name] = list(parse_output(vds, i, active_chain) for i in xrange(vds.read_compact_size()))
+        else:
+            d[name] = action()
+
     return d
 
 
@@ -278,9 +292,11 @@ class Transaction:
         if self.inputs is not None:
             return
         d = deserialize(self.raw, self.active_chain)
-        self.inputs = d['inputs']
         self.outputs = [(x['type'], x['address'], x['value']) for x in d['outputs']]
-        self.locktime = d['lockTime']
+        for k, v in d.items():
+            # We already set "outputs".
+            if k != 'outputs':
+                setattr(self, k, v)
         return d
 
     @classmethod
@@ -401,29 +417,84 @@ class Transaction:
         self.inputs.sort(key = lambda i: (i['prevout_hash'], i['prevout_n']))
         self.outputs.sort(key = lambda o: (o[2], self.pay_script(o[0], o[1])))
 
-    def serialize(self, for_sig=None):
-        inputs = self.inputs
-        outputs = self.outputs
-        s  = int_to_hex(1,4)                                         # version
-        s += var_int( len(inputs) )                                  # number of inputs
-        for i, txin in enumerate(inputs):
+    def serialize_inputs(self, for_sig=None):
+        s = ''
+        for i, txin in enumerate(self.inputs):
             s += txin['prevout_hash'].decode('hex')[::-1].encode('hex')   # prev hash
             s += int_to_hex(txin['prevout_n'], 4)                         # prev index
             script = self.input_script(txin, i, for_sig)
             s += var_int( len(script)/2 )                            # script length
             s += script
             s += "ffffffff"                                          # sequence
-        s += var_int( len(outputs) )                                 # number of outputs
-        for output in outputs:
+        return s
+
+    def serialize_outputs(self):
+        s = ''
+        for output in self.outputs:
             output_type, addr, amount = output
             s += int_to_hex( amount, 8)                              # amount
             script = self.pay_script(output_type, addr)
             s += var_int( len(script)/2 )                           #  script length
             s += script                                             #  script
-        s += int_to_hex(0,4)                                        #  lock time
-        if for_sig is not None and for_sig != -1:
-            s += int_to_hex(1, 4)                                   #  hash type
         return s
+
+    def serialize(self, for_sig=None):
+        inputs = self.inputs
+        outputs = self.outputs
+
+        # field, field data(data_overridden_by_chain)
+        fields = [
+            ('version', []),
+            ('vin', []),
+            ('inputs', []),
+            ('vout', []),
+            ('outputs', []),
+            ('locktime', []),
+            ('hashtype', [])
+        ]
+        # If a chain needs to override default behavior, it will put data into
+        # a tuple's list. If the list is not empty (due to the chain adding data to it),
+        # we will skip putting the serialized data in to it since the chain did so for us.
+        self.active_chain.serialize_tx_fields(self, for_sig, fields)
+
+        # Populate field_data list with transaction data.
+        for i, (field, field_data) in enumerate(fields):
+            # If data was not overridden by the chain, serialize.
+            if not field_data:
+                # Version attribute, or 1 if no attribute exists.
+                if field == 'version':
+                    if hasattr(self, 'version'):
+                        field_data.append(int_to_hex(getattr(self, 'version'), 4))
+                    else:
+                        field_data.append(int_to_hex(1,4))
+                # Number of inputs.
+                elif field == 'vin':
+                    field_data.append(var_int(len(inputs)))
+                # Inputs.
+                elif field == 'inputs':
+                    field_data.append(self.serialize_inputs(for_sig))
+                # Number of outputs.
+                elif field == 'vout':
+                    field_data.append(var_int(len(outputs)))
+                # Outputs.
+                elif field == 'outputs':
+                    field_data.append(self.serialize_outputs())
+                # Locktime attribute, or 0 if no attribute exists.
+                elif field == 'locktime':
+                    if hasattr(self, 'locktime'):
+                        field_data.append(int_to_hex(getattr(self, 'locktime'), 4))
+                    else:
+                        field_data.append(int_to_hex(0,4))
+                # Hash type.
+                elif field == 'hashtype':
+                    if for_sig is not None and for_sig != -1:
+                        field_data.append(int_to_hex(1,4))
+
+        s = []
+        for field, field_data in fields:
+            s.append(''.join(field_data))
+
+        return ''.join(s)
 
     def tx_for_sig(self,i):
         return self.serialize(for_sig = i)
