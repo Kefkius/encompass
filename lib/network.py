@@ -309,25 +309,35 @@ class Network(util.DaemonThread):
             if callback in self.callbacks.get(event):
                 self.callbacks[event].remove(callback)
 
-    def read_recent_servers(self):
+    def read_recent_servers_file(self):
+        """Read the recent_servers file.
+
+        Returns a dict of {chain: [server, ...]}.
+        """
         if not self.config.path:
-            return []
+            return {}
         path = os.path.join(self.config.path, "recent_servers")
-        if not os.path.exists(path):
-            os.mkdir(path)
-        path = os.path.join(path, self.active_chain.code.lower())
         try:
             with open(path, "r") as f:
                 data = f.read()
                 return json.loads(data)
         except:
-            return []
+            return {}
+
+    def read_recent_servers(self):
+        """Read the recent_servers file for the active chain."""
+        data = self.read_recent_servers_file()
+        if data and type(data) is dict:
+            return data.get(self.active_chain.code, [])
+        return []
 
     def save_recent_servers(self):
         if not self.config.path:
             return
+        data = self.read_recent_servers_file()
+        data[self.active_chain.code] = self.recent_servers
+        s = json.dumps(data, indent=4, sort_keys=True)
         path = os.path.join(self.config.path, "recent_servers")
-        s = json.dumps(self.recent_servers, indent=4, sort_keys=True)
         try:
             with open(path, "w") as f:
                 f.write(s)
