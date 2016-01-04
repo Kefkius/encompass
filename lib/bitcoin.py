@@ -489,7 +489,8 @@ class EC_KEY(object):
         public_key.verify_digest(sig[1:], h, sigdecode = ecdsa.util.sigdecode_string)
         pubkey = point_to_ser(public_key.pubkey.point, compressed)
         # check that we get the original signing address
-        addr = public_key_to_bc_address(pubkey)
+        addr_version, _ = bc_address_to_hash_160(address)
+        addr = public_key_to_bc_address(pubkey, addr_version)
         if address != addr:
             raise Exception("Bad signature")
 
