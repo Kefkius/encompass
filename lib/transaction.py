@@ -133,7 +133,7 @@ def parse_scriptSig(d, bytes):
         return
     x_pubkeys = map(lambda x: x[1].encode('hex'), dec2[1:-2])
     pubkeys = [parse_xpub(x)[0] for x in x_pubkeys]     # xpub, addr = parse_xpub()
-    redeemScript = Transaction.multisig_script(pubkeys, m)
+    redeemScript = multisig_script(pubkeys, m)
     # write result in d
     d['num_sig'] = m
     d['signatures'] = parse_sig(x_sig)
@@ -339,16 +339,6 @@ class Transaction:
         return self
 
     @classmethod
-    def multisig_script(klass, public_keys, m):
-        n = len(public_keys)
-        assert n <= 15
-        assert m <= n
-        op_m = format(opcodes.OP_1 + m - 1, 'x')
-        op_n = format(opcodes.OP_1 + n - 1, 'x')
-        keylist = [op_push(len(k)/2) + k for k in public_keys]
-        return op_m + ''.join(keylist) + op_n + 'ae'
-
-    @classmethod
     def pay_script(cls, output_type, addr, active_chain=None):
         if active_chain is None:
             active_chain = chainparams.get_active_chain()
@@ -404,7 +394,7 @@ class Transaction:
                 script += push_script(x_pubkey)
             else:
                 script = '00' + script          # put op_0 in front of script
-                redeem_script = self.multisig_script(pubkeys, num_sig)
+                redeem_script = multisig_script(pubkeys, num_sig)
                 script += push_script(redeem_script)
 
         elif for_sig==i:

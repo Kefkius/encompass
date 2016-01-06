@@ -280,3 +280,13 @@ def p2sh_script(hash_160):
     s.append(push_script(hash_160))
     s.append('87')                  # op_equal
     return ''.join(s)
+
+def multisig_script(public_keys, m):
+    n = len(public_keys)
+    assert n <= 15
+    assert m <= n
+    op_m = format(opcodes.OP_1 + m - 1, 'x')
+    op_n = format(opcodes.OP_1 + n - 1, 'x')
+    keylist = [op_push(len(k)/2) + k for k in public_keys]
+    return op_m + ''.join(keylist) + op_n + 'ae'
+
