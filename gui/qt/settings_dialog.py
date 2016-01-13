@@ -241,6 +241,58 @@ class GlobalOptions(QWidget):
 
         self.setLayout(form)
 
+class ExpertOptions(QWidget):
+    def __init__(self, main_window, parent=None):
+        super(ExpertOptions, self).__init__(parent)
+        self.gui = gui = main_window
+        self.config = self.gui.config
+        form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+
+        # Chain network timeout.
+        chain_network_timeout = QSpinBox()
+        chain_network_timeout.setRange(10, 3600)
+        chain_network_timeout.setValue(self.config.get_above_chain('chain_network_timeout', 15))
+        def on_chain_network_timeout():
+            new_value = chain_network_timeout.value()
+            self.config.set_key_above_chain('chain_network_timeout', new_value)
+            self.gui.need_restart = True
+        chain_network_timeout.valueChanged.connect(on_chain_network_timeout)
+        chain_timeout_label = HelpLabel(_('Chain network timeout:'), _('Amount of time before the network for a chain disconnects automatically when not in use.'))
+        form.addRow(chain_timeout_label, chain_network_timeout)
+
+        self.setLayout(form)
+
+class ExpertOptionsPage(QWidget):
+    def __init__(self, main_window, parent=None):
+        super(ExpertOptionsPage, self).__init__(parent)
+        self.gui = gui = main_window
+        self.config = self.gui.config
+        vbox = QVBoxLayout()
+        warning_label = QLabel('Expert Mode is intended for developers and power users.\n\nIf you are unsure, do not enable Expert Mode.')
+        p = QPalette()
+        p.setColor(QPalette.WindowText, Qt.red)
+        warning_label.setPalette(p)
+        vbox.addWidget(warning_label)
+
+        self.expert_mode = QCheckBox('Expert Mode')
+        self.expert_mode.setChecked(self.config.get_above_chain('expert_mode', False))
+        self.expert_mode.stateChanged.connect(lambda: self.set_expert_mode_enabled(self.expert_mode.isChecked()))
+        vbox.addWidget(self.expert_mode)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        vbox.addWidget(separator)
+
+        self.expert_widget = ExpertOptions(self.gui)
+        self.expert_widget.setEnabled(self.expert_mode.isChecked())
+        vbox.addWidget(self.expert_widget, stretch=1)
+
+        self.setLayout(vbox)
+
+    def set_expert_mode_enabled(self, is_enabled):
+        self.expert_widget.setEnabled(is_enabled)
+        self.config.set_key_above_chain('expert_mode', is_enabled)
 
 class SettingsDialog(QDialog):
     def __init__(self, main_window, parent=None):
@@ -251,8 +303,10 @@ class SettingsDialog(QDialog):
         self.tabs = QTabWidget()
         self.global_options = GlobalOptions(self.gui)
         self.chain_options = ChainOptions(self.gui)
+        self.expert_options = ExpertOptionsPage(self.gui)
         self.tabs.addTab(self.global_options, _('General'))
         self.tabs.addTab(self.chain_options, self.gui.wallet_chain().coin_name)
+        self.tabs.addTab(self.expert_options, _('Expert Mode'))
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
