@@ -14,7 +14,6 @@ try:
 except ImportError:
     sys.exit("Error: python-ecdsa does not seem to be installed. Try 'sudo pip install ecdsa'")
 
-magic = '\x18Bitcoin Signed Message:\n'
 
 class Test_bitcoin(unittest.TestCase):
 
@@ -46,9 +45,9 @@ class Test_bitcoin(unittest.TestCase):
         dec2 = eck.decrypt_message(enc)
         assert dec2 == message
 
-        signature = eck.sign_message(magic, message, True, addr_c)
+        signature = eck.sign_message(message, True, addr_c)
         #print signature
-        EC_KEY.verify_message(magic, addr_c, signature, message)
+        EC_KEY.verify_message(addr_c, signature, message)
 
     def test_bip32(self):
         # see https://en.bitcoin.it/wiki/BIP_0032_TestVectors

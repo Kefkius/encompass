@@ -387,7 +387,7 @@ class Commands:
     def verifymessage(self, address, signature, message):
         """Verify a signature."""
         sig = base64.b64decode(signature)
-        return bitcoin.verify_message(address, sig, message)
+        return bitcoin.verify_message(address, sig, message, chainparams.get_active_chain())
 
     def _mktx(self, outputs, fee, change_addr, domain, nocheck, unsigned):
         self.nocheck = nocheck

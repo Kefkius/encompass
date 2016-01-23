@@ -350,9 +350,11 @@ def msg_magic(magic, message):
     return ''.join([prefix, encoded_varint, message])
 
 
-def verify_message(magic, address, signature, message):
+def verify_message(address, signature, message, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     try:
-        EC_KEY.verify_message(magic, address, signature, message)
+        EC_KEY.verify_message(address, signature, message, active_chain)
         return True
     except Exception as e:
         print_error("Verification error: {0}".format(e))
@@ -464,12 +466,14 @@ class EC_KEY(object):
         assert public_key.verify_digest(signature, msg_hash, sigdecode = ecdsa.util.sigdecode_string)
         return signature
 
-    def sign_message(self, magic, message, compressed, address):
-        signature = self.sign(Hash(msg_magic(magic, message)))
+    def sign_message(self, message, compressed, address, active_chain=None):
+        if active_chain is None:
+            active_chain = chainparams.get_active_chain()
+        signature = self.sign(Hash(msg_magic(active_chain.message_magic, message)))
         for i in range(4):
             sig = chr(27 + i + (4 if compressed else 0)) + signature
             try:
-                self.verify_message(magic, address, sig, message)
+                self.verify_message(address, sig, message, active_chain)
                 return sig
             except Exception:
                 continue
@@ -477,7 +481,9 @@ class EC_KEY(object):
             raise Exception("error: cannot sign message")
 
     @classmethod
-    def verify_message(self, magic, address, sig, message):
+    def verify_message(self, address, sig, message, active_chain=None):
+        if active_chain is None:
+            active_chain = chainparams.get_active_chain()
         if len(sig) != 65:
             raise Exception("Wrong encoding")
         nV = ord(sig[0])
@@ -490,14 +496,14 @@ class EC_KEY(object):
             compressed = False
         recid = nV - 27
 
-        h = Hash(msg_magic(magic, message))
+        h = Hash(msg_magic(active_chain.message_magic, message))
         public_key = MyVerifyingKey.from_signature(sig[1:], recid, h, curve = SECP256k1)
         # check public key
         public_key.verify_digest(sig[1:], h, sigdecode = ecdsa.util.sigdecode_string)
         pubkey = point_to_ser(public_key.pubkey.point, compressed)
         # check that we get the original signing address
         addr_version, _ = bc_address_to_hash_160(address)
-        addr = public_key_to_bc_address(pubkey, addr_version)
+        addr = public_key_to_bc_address(pubkey, addr_version, active_chain)
         if address != addr:
             raise Exception("Bad signature")
 
