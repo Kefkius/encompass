@@ -127,6 +127,12 @@ class CryptoCur(object):
         if not self.base_units:
             self.base_units = {self.code: 8}
 
+    def hash_algo(self, name):
+        """Return the coinhash algorithm for hashing name."""
+        hash_attr = getattr(self, '_'.join([name, 'hash']), None)
+        if hash_attr:
+            return getattr(coinhash, hash_attr.__name__)
+
     def block_explorer(self, config):
         """Get preferred block explorer from config."""
         return config.get('block_explorer', self.block_explorers[0])
@@ -246,7 +252,7 @@ class CryptoCur(object):
         return h
 
     def hash_header(self, header):
-        return rev_hex(( getattr(coinhash, self.header_hash.__name__)(self.header_to_string(header).decode('hex')) ).encode('hex'))
+        return rev_hex(( self.hash_algo('header')(self.header_to_string(header).decode('hex')) ).encode('hex'))
 
     # save a chunk of headers to the binary file. Should not need to be reimplemented but can be.
     def save_chunk(self, index, chunk):
