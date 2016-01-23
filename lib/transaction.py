@@ -52,7 +52,9 @@ def x_to_xpub(x_pubkey):
         return xpub
 
 
-def parse_xpub(x_pubkey):
+def parse_xpub(x_pubkey, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     if x_pubkey[0:2] in ['02','03','04']:
         pubkey = x_pubkey
     elif x_pubkey[0:2] == 'ff':
@@ -67,15 +69,17 @@ def parse_xpub(x_pubkey):
         addrtype = ord(x_pubkey[2:4].decode('hex'))
         hash160 = x_pubkey[4:].decode('hex')
         pubkey = None
-        address = hash_160_to_bc_address(hash160, addrtype)
+        address = hash_160_to_bc_address(hash160, addrtype, active_chain)
     else:
         raise BaseException("Cannnot parse pubkey")
     if pubkey:
-        address = public_key_to_bc_address(pubkey.decode('hex'))
+        address = public_key_to_bc_address(pubkey.decode('hex'), active_chain.p2pkh_version, active_chain)
     return pubkey, address
 
 
-def parse_scriptSig(d, bytes):
+def parse_scriptSig(d, bytes, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     try:
         decoded = [ x for x in script_GetOp(bytes) ]
     except Exception:
@@ -103,7 +107,7 @@ def parse_scriptSig(d, bytes):
         x_pubkey = decoded[1][1].encode('hex')
         try:
             signatures = parse_sig([sig])
-            pubkey, address = parse_xpub(x_pubkey)
+            pubkey, address = parse_xpub(x_pubkey, active_chain)
         except:
             import traceback
             traceback.print_exc(file=sys.stdout)
@@ -132,7 +136,7 @@ def parse_scriptSig(d, bytes):
         print_error("cannot find address in input script", bytes.encode('hex'))
         return
     x_pubkeys = map(lambda x: x[1].encode('hex'), dec2[1:-2])
-    pubkeys = [parse_xpub(x)[0] for x in x_pubkeys]     # xpub, addr = parse_xpub()
+    pubkeys = [parse_xpub(x, active_chain)[0] for x in x_pubkeys]     # xpub, addr = parse_xpub()
     redeemScript = multisig_script(pubkeys, m)
     # write result in d
     d['num_sig'] = m
@@ -140,7 +144,7 @@ def parse_scriptSig(d, bytes):
     d['x_pubkeys'] = x_pubkeys
     d['pubkeys'] = pubkeys
     d['redeemScript'] = redeemScript
-    d['address'] = hash_160_to_bc_address(hash_160(redeemScript.decode('hex')), 5)
+    d['address'] = hash_160_to_bc_address(hash_160(redeemScript.decode('hex')), active_chain.p2sh_version, active_chain)
 
 
 
@@ -160,12 +164,12 @@ def get_address_from_output_script(bytes, active_chain=None):
     # DUP HASH160 20 BYTES:... EQUALVERIFY CHECKSIG
     match = [ opcodes.OP_DUP, opcodes.OP_HASH160, opcodes.OP_PUSHDATA4, opcodes.OP_EQUALVERIFY, opcodes.OP_CHECKSIG ]
     if match_decoded(decoded, match):
-        return 'address', hash_160_to_bc_address(decoded[2][1], active_chain.p2pkh_version)
+        return 'address', hash_160_to_bc_address(decoded[2][1], active_chain.p2pkh_version, active_chain)
 
     # p2sh
     match = [ opcodes.OP_HASH160, opcodes.OP_PUSHDATA4, opcodes.OP_EQUAL ]
     if match_decoded(decoded, match):
-        return 'address', hash_160_to_bc_address(decoded[1][1], active_chain.p2sh_version)
+        return 'address', hash_160_to_bc_address(decoded[1][1], active_chain.p2sh_version, active_chain)
 
     return 'script', bytes
 
@@ -173,7 +177,9 @@ def get_address_from_output_script(bytes, active_chain=None):
 
 
 
-def parse_input(vds):
+def parse_input(vds, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     d = {}
     prevout_hash = hash_encode(vds.read_bytes(32))
     prevout_n = vds.read_uint32()
@@ -191,7 +197,7 @@ def parse_input(vds):
         d['signatures'] = {}
         d['address'] = None
         if scriptSig:
-            parse_scriptSig(d, scriptSig)
+            parse_scriptSig(d, scriptSig, active_chain)
     return d
 
 
@@ -227,7 +233,7 @@ def deserialize(raw, active_chain=None):
     for name, action in fields:
         # Special case - inputs.
         if name == 'inputs':
-            d[name] = list(parse_input(vds) for i in xrange(vds.read_compact_size()))
+            d[name] = list(parse_input(vds, active_chain) for i in xrange(vds.read_compact_size()))
         # Special case - outputs.
         elif name == 'outputs':
             d[name] = list(parse_output(vds, i, active_chain) for i in xrange(vds.read_compact_size()))
@@ -300,20 +306,20 @@ class Transaction:
         return d
 
     @classmethod
-    def from_io(klass, inputs, outputs, locktime=0):
-        self = klass(None)
+    def from_io(klass, inputs, outputs, locktime=0, active_chain=None):
+        self = klass(None, active_chain)
         self.inputs = inputs
         self.outputs = outputs
         self.locktime = locktime
         return self
 
     @classmethod
-    def sweep(klass, privkeys, network, to_address, fee):
+    def sweep(klass, privkeys, network, to_address, fee, active_chain=None):
         inputs = []
         keypairs = {}
         for privkey in privkeys:
             pubkey = public_key_from_private_key(privkey)
-            address = address_from_private_key(privkey)
+            address = address_from_private_key(privkey, active_chain)
             u = network.synchronous_get(('blockchain.address.listunspent',[address]))
             pay_script = klass.pay_script('address', address)
             for item in u:
@@ -334,7 +340,7 @@ class Transaction:
 
         total = sum(i.get('value') for i in inputs) - fee
         outputs = [('address', to_address, total)]
-        self = klass.from_io(inputs, outputs)
+        self = klass.from_io(inputs, outputs, active_chain=active_chain)
         self.sign(keypairs)
         return self
 
@@ -587,7 +593,7 @@ class Transaction:
             if type == 'address':
                 addr = x
             elif type == 'pubkey':
-                addr = public_key_to_bc_address(x.decode('hex'))
+                addr = public_key_to_bc_address(x.decode('hex'), self.active_chain.p2pkh_version, self.active_chain)
             else:
                 addr = 'SCRIPT ' + x.encode('hex')
             o.append((addr,v))      # consider using yield (addr, v)

@@ -234,7 +234,8 @@ class Commands:
         """Create multisig address"""
         assert isinstance(pubkeys, list), (type(num), type(pubkeys))
         redeem_script = script.multisig_script(pubkeys, num)
-        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), 5)
+        chain = chainparams.get_active_chain()
+        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), chain.p2sh_version, chain)
         return {'address':address, 'redeemScript':redeem_script}
 
     @command('w')

@@ -319,7 +319,7 @@ class Abstract_Wallet(PrintError):
         for k, v in self.imported_keys.items():
             sec = pw_decode(v, password)
             pubkey = public_key_from_private_key(sec)
-            address = public_key_to_bc_address(pubkey.decode('hex'))
+            address = public_key_to_bc_address(pubkey.decode('hex'), self.storage.param('p2pkh_version'), self.storage.active_chain)
             if address != k:
                 raise InvalidPassword()
             self.import_key(sec, password)
@@ -378,7 +378,7 @@ class Abstract_Wallet(PrintError):
         assert self.can_import(), 'This wallet cannot import private keys'
         try:
             pubkey = public_key_from_private_key(sec)
-            address = public_key_to_bc_address(pubkey.decode('hex'))
+            address = public_key_to_bc_address(pubkey.decode('hex'), self.storage.param('p2pkh_version'), self.storage.active_chain)
         except Exception:
             raise Exception('Invalid private key')
 
@@ -462,7 +462,7 @@ class Abstract_Wallet(PrintError):
         return key.sign_message(self.storage.param('message_magic'), message, compressed, address)
 
     def decrypt_message(self, pubkey, message, password):
-        address = public_key_to_bc_address(pubkey.decode('hex'))
+        address = public_key_to_bc_address(pubkey.decode('hex'), self.storage.param('p2pkh_version'), self.storage.active_chain)
         keys = self.get_private_key(address, password)
         secret = keys[0]
         ec = regenerate_key(secret)
@@ -778,7 +778,7 @@ class Abstract_Wallet(PrintError):
                 if _type == 'address':
                     addr = x
                 elif _type == 'pubkey':
-                    addr = public_key_to_bc_address(x.decode('hex'))
+                    addr = public_key_to_bc_address(x.decode('hex'), self.storage.param('p2pkh_version'), self.storage.active_chain)
                 else:
                     addr = None
                 if addr and self.is_mine(addr):
@@ -1250,7 +1250,7 @@ class Abstract_Wallet(PrintError):
 
     def get_private_key_from_xpubkey(self, x_pubkey, password):
         if x_pubkey[0:2] in ['02','03','04']:
-            addr = bitcoin.public_key_to_bc_address(x_pubkey.decode('hex'))
+            addr = bitcoin.public_key_to_bc_address(x_pubkey.decode('hex'), self.storage.param('p2pkh_version'), self.storage.active_chain)
             if self.is_mine(addr):
                 return self.get_private_key(addr, password)[0]
         elif x_pubkey[0:2] == 'ff':
@@ -1269,7 +1269,7 @@ class Abstract_Wallet(PrintError):
                     return pk[0]
         elif x_pubkey[0:2] == 'fd':
             addrtype = ord(x_pubkey[2:4].decode('hex'))
-            addr = hash_160_to_bc_address(x_pubkey[4:].decode('hex'), addrtype)
+            addr = hash_160_to_bc_address(x_pubkey[4:].decode('hex'), addrtype, self.storage.active_chain)
             if self.is_mine(addr):
                 return self.get_private_key(addr, password)[0]
         else:
@@ -1278,7 +1278,7 @@ class Abstract_Wallet(PrintError):
 
     def can_sign_xpubkey(self, x_pubkey):
         if x_pubkey[0:2] in ['02','03','04']:
-            addr = bitcoin.public_key_to_bc_address(x_pubkey.decode('hex'))
+            addr = bitcoin.public_key_to_bc_address(x_pubkey.decode('hex'), self.storage.param('p2pkh_version'), self.storage.active_chain)
             return self.is_mine(addr)
         elif x_pubkey[0:2] == 'ff':
             if not isinstance(self, BIP32_Wallet): return False
@@ -1290,7 +1290,7 @@ class Abstract_Wallet(PrintError):
             return xpub == self.get_master_public_key()
         elif x_pubkey[0:2] == 'fd':
             addrtype = ord(x_pubkey[2:4].decode('hex'))
-            addr = hash_160_to_bc_address(x_pubkey[4:].decode('hex'), addrtype)
+            addr = hash_160_to_bc_address(x_pubkey[4:].decode('hex'), addrtype, self.storage.active_chain)
             return self.is_mine(addr)
         else:
             raise BaseException("z")

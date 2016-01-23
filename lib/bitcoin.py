@@ -30,6 +30,8 @@ from util_coin import (COIN, sha256, Hash, rev_hex, int_to_hex,
 import ecdsa
 import aes
 
+import chainparams
+
 ################################## transactions
 
 
@@ -159,13 +161,16 @@ def hash_160(public_key):
         return md.digest()
 
 
-def public_key_to_bc_address(public_key, addrtype = 0):
+def public_key_to_bc_address(public_key, addrtype = 0, active_chain = None):
     h160 = hash_160(public_key)
-    return hash_160_to_bc_address(h160, addrtype)
+    return hash_160_to_bc_address(h160, addrtype, active_chain)
 
-def hash_160_to_bc_address(h160, addrtype = 0):
+def hash_160_to_bc_address(h160, addrtype = 0, active_chain = None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
+    hash_algo = active_chain.hash_algo('base58')
     vh160 = chr(addrtype) + h160
-    h = Hash(vh160)
+    h = hash_algo(vh160)
     addr = vh160 + h[0:4]
     return base_encode(addr, base=58)
 
@@ -293,9 +298,11 @@ def public_key_from_private_key(sec):
     return public_key.encode('hex')
 
 
-def address_from_private_key(sec):
+def address_from_private_key(sec, active_chain=None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
     public_key = public_key_from_private_key(sec)
-    address = public_key_to_bc_address(public_key.decode('hex'))
+    address = public_key_to_bc_address(public_key.decode('hex'), active_chain.p2pkh_version, active_chain)
     return address
 
 

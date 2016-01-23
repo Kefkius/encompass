@@ -67,7 +67,7 @@ class Account(object):
         return address
 
     def pubkeys_to_address(self, pubkey):
-        return public_key_to_bc_address(pubkey.decode('hex'), self.active_chain.p2pkh_version)
+        return public_key_to_bc_address(pubkey.decode('hex'), self.active_chain.p2pkh_version, self.active_chain)
 
     def has_change(self):
         return True
@@ -153,7 +153,7 @@ class ImportedAccount(Account):
         address = self.get_addresses(0)[i]
         pk = pw_decode(self.keypairs[address][1], password)
         # this checks the password
-        if address != address_from_private_key(pk):
+        if address != address_from_private_key(pk, self.active_chain):
             raise InvalidPassword()
         return [pk]
 
@@ -208,7 +208,7 @@ class OldAccount(Account):
 
     def get_address(self, for_change, n):
         pubkey = self.get_pubkey(for_change, n)
-        address = public_key_to_bc_address( pubkey.decode('hex') )
+        address = public_key_to_bc_address( pubkey.decode('hex'), self.active_chain.p2pkh_version, self.active_chain )
         return address
 
     @classmethod
@@ -391,7 +391,7 @@ class Multisig_Account(BIP32_Account):
 
     def pubkeys_to_address(self, pubkeys):
         redeem_script = script.multisig_script(sorted(pubkeys), self.m)
-        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), self.active_chain.p2sh_version)
+        address = hash_160_to_bc_address(hash_160(redeem_script.decode('hex')), self.active_chain.p2sh_version, self.active_chain)
         return address
 
     def get_address(self, for_change, n):
