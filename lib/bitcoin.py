@@ -235,16 +235,22 @@ def base_decode(v, length, base):
     return result
 
 
-def EncodeBase58Check(vchIn):
-    hash = Hash(vchIn)
+def EncodeBase58Check(vchIn, active_chain = None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
+    hash_algo = active_chain.hash_algo('base58')
+    hash = hash_algo(vchIn)
     return base_encode(vchIn + hash[0:4], base=58)
 
 
-def DecodeBase58Check(psz):
+def DecodeBase58Check(psz, active_chain = None):
+    if active_chain is None:
+        active_chain = chainparams.get_active_chain()
+    hash_algo = active_chain.hash_algo('base58')
     vchRet = base_decode(psz, None, base=58)
     key = vchRet[0:-4]
     csum = vchRet[-4:]
-    hash = Hash(key)
+    hash = hash_algo(key)
     cs32 = hash[0:4]
     if cs32 != csum:
         return None
