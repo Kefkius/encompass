@@ -21,6 +21,11 @@ RED_FG = "QWidget {color:red;}"
 BLUE_FG = "QWidget {color:blue;}"
 BLACK_FG = "QWidget {color:black;}"
 
+def get_coin_icon(chaincode='BTC'):
+    coin_icon_name = ':icons/coin_' + chaincode.lower() + '.png'
+    if not QFile(coin_icon_name).exists():
+        coin_icon_name = ':icons/coin_btc.png'
+    return QIcon(coin_icon_name)
 
 class WaitingDialog(QThread):
     def __init__(self, parent, message, run_task, on_success=None, on_complete=None):

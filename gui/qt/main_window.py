@@ -282,6 +282,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.mpk_menu.setEnabled(self.wallet.is_deterministic())
         self.import_menu.setVisible(self.wallet.can_import())
         self.export_menu.setEnabled(self.wallet.can_export())
+        self.update_coin_icon()
         self.update_lock_icon()
         self.update_buttons_on_seed()
         self.update_console()
@@ -1852,8 +1853,16 @@ class ElectrumWindow(QMainWindow, PrintError):
         sb.addPermanentWidget( self.seed_button )
         self.status_button = StatusBarButton( QIcon(":icons/status_disconnected.png"), _("Network"), self.run_network_dialog )
         sb.addPermanentWidget( self.status_button )
+
+        self.change_currency_button = StatusBarButton( get_coin_icon(), _("Change Currency"), self.change_currency_dialog )
+        sb.addPermanentWidget( self.change_currency_button )
+
         run_hook('create_status_bar', sb)
         self.setStatusBar(sb)
+
+    def update_coin_icon(self):
+        icon = get_coin_icon(self.wallet_chain().code)
+        self.change_currency_button.setIcon( icon )
 
     def update_lock_icon(self):
         icon = QIcon(":icons/lock.png") if self.wallet.use_encryption else QIcon(":icons/unlock.png")
