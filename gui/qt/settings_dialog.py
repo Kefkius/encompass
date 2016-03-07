@@ -229,7 +229,7 @@ class GlobalOptions(QWidget):
         form.addRow(qr_label, qr_combo)
 
         # Favorite chains.
-        fav_chains_list = map(lambda x: x.encode('ascii', 'ignore'), self.config.get_above_chain('favorite_chains', []))
+        fav_chains_list = sorted(map(lambda x: x.encode('ascii', 'ignore'), self.config.get_above_chain('favorite_chains', [])))
         # Maximum of three favorite chains
         if len(fav_chains_list) > 3:
             fav_chains_list = fav_chains_list[:3]
@@ -244,7 +244,7 @@ class GlobalOptions(QWidget):
         favs_button = QPushButton(_('Change Favorites'))
         def do_fav():
             FavoriteCurrenciesDialog(self).exec_()
-            fav_chains_list = map(lambda x: x.encode('ascii', 'ignore'), self.config.get_above_chain('favorite_chains', []))
+            fav_chains_list = sorted(map(lambda x: x.encode('ascii', 'ignore'), self.config.get_above_chain('favorite_chains', [])))
             if not fav_chains_list: fav_chains_list = 'None'
             fav_chains_list = str(fav_chains_list).replace("'", "")
             favs_value.setText(fav_chains_list)

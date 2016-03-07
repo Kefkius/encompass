@@ -80,6 +80,8 @@ class FavoriteCurrenciesDialog(CurrenciesCheckboxDialog):
             for box in self.coin_checkboxes:
                 if not box.isChecked():
                     box.setEnabled(False)
+                else:
+                    box.setEnabled(True)
 
     def change_coin_state(self, checkbox):
         code = str(checkbox.text()).split()[0]
