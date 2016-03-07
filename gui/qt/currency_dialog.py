@@ -9,7 +9,7 @@ from encompass.i18n import _
 from encompass import chainparams
 from encompass.util import print_error
 
-from util import Buttons, CloseButton, OkButton
+from util import Buttons, CloseButton, OkButton, get_coin_icon
 
 class CurrenciesCheckboxDialog(QDialog):
     def __init__(self, parent):
@@ -164,6 +164,8 @@ class CurrenciesModel(QAbstractTableModel):
         if col == 0:
             if role in [Qt.DisplayRole, Qt.ToolTipRole]:
                 data = chain.code
+            elif role == Qt.DecorationRole:
+                data = get_coin_icon(chain.code)
         elif col == 1:
             if role in [Qt.DisplayRole, Qt.ToolTipRole]:
                 data = chain.coin_name
@@ -207,7 +209,7 @@ class ChangeCurrencyDialog(QDialog):
         self.view.setAlternatingRowColors(True)
         self.view.setWordWrap(True)
         self.view.horizontalHeader().setHighlightSections(False)
-        self.view.verticalHeader().setDefaultSectionSize(22)
+        self.view.verticalHeader().setDefaultSectionSize(25)
         self.view.verticalHeader().setVisible(False)
         self.view.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.view.setSelectionMode(QAbstractItemView.SingleSelection)
