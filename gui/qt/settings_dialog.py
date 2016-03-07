@@ -7,6 +7,7 @@ from encompass import paymentrequest
 from encompass.util_coin import block_explorer_info, block_explorer
 
 from amountedit import BTCkBEdit
+from currency_dialog import FavoriteCurrenciesDialog
 from util import HelpLabel, Buttons, CloseButton
 
 class ChainOptions(QWidget):
@@ -226,6 +227,35 @@ class GlobalOptions(QWidget):
         on_video_device = lambda x: self.config.set_key_above_chain("video_device", str(qr_combo.itemData(x).toString()), True)
         qr_combo.currentIndexChanged.connect(on_video_device)
         form.addRow(qr_label, qr_combo)
+
+        # Favorite chains.
+        fav_chains_list = map(lambda x: x.encode('ascii', 'ignore'), self.config.get_above_chain('favorite_chains', []))
+        # Maximum of three favorite chains
+        if len(fav_chains_list) > 3:
+            fav_chains_list = fav_chains_list[:3]
+            self.config.set_key_above_chain('favorite_chains', fav_chains_list)
+        # Replace an empty list with the string 'None'
+        if not fav_chains_list: fav_chains_list = 'None'
+        fav_chains_list = str(fav_chains_list).replace("'", "")
+
+        msg = _('Favorite coins are in the status bar\'s coin menu, and appear before others in the currency selection window.')
+        favs_label = HelpLabel(_('Favorite coins') + ':', msg)
+        favs_value = QLabel(fav_chains_list)
+        favs_button = QPushButton(_('Change Favorites'))
+        def do_fav():
+            FavoriteCurrenciesDialog(self).exec_()
+            fav_chains_list = map(lambda x: x.encode('ascii', 'ignore'), self.config.get_above_chain('favorite_chains', []))
+            if not fav_chains_list: fav_chains_list = 'None'
+            fav_chains_list = str(fav_chains_list).replace("'", "")
+            favs_value.setText(fav_chains_list)
+            # update the coin menu
+            self.gui.update_currency_changer()
+        favs_button.clicked.connect(do_fav)
+        favs_hbox = QHBoxLayout()
+        favs_hbox.addWidget(favs_value, stretch=1)
+        favs_hbox.addWidget(favs_button)
+        form.addRow(favs_label, favs_hbox)
+
 
         showtx_cb = QCheckBox(_('View transaction before signing'))
         showtx_cb.setChecked(gui.show_before_broadcast())
