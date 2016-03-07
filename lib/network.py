@@ -6,7 +6,7 @@ import random
 import select
 import traceback
 from collections import defaultdict, deque
-from threading import Lock, Timer
+from threading import Lock, Timer, Event
 
 import socks
 import socket
@@ -20,29 +20,17 @@ from version import ELECTRUM_VERSION, PROTOCOL_VERSION
 import chainparams
 from simple_config import SimpleConfig, get_config
 
-class ChainTimer(object):
-    """Timer for deciding when to stop a Network instance."""
-    def __init__(self, controller, chaincode, chain_interval = 15):
-        super(ChainTimer, self).__init__()
-        self.controller = controller
-        self.chain_interval = chain_interval
-        self.chaincode = chaincode
-        self.timer = None
+class ChainNetworkTimer(object):
+    """Timer for deciding when to stop a Network instance.
 
-    def callback(self):
-        self.controller.expire_network(self.chaincode)
+    Attributes:
+        start_time: Time that the timer started.
+        stopped: Event that describes whether the timer is in effect.
 
-    def start(self):
-        self.timer = Timer(self.chain_interval, self.callback)
-        self.timer.start()
-
-    def cancel(self):
-        if self.timer is not None:
-            self.timer.cancel()
-
-    def restart(self):
-        self.cancel()
-        self.start()
+    """
+    def __init__(self, start_time=0):
+        self.start_time = start_time
+        self.stopped = Event()
 
 class NetworkController(util.DaemonThread):
     """Handles Network instances for various chains."""
@@ -51,12 +39,17 @@ class NetworkController(util.DaemonThread):
         self.config = get_config() if config is None else config
         self.networks = {}
         # Timers for deciding when to stop Network instances.
+        # {chaincode: ChainNetworkTimer(), ...}
         self.timers = {}
+        for chain in chainparams.known_chain_codes:
+            self.timers[chain] = ChainNetworkTimer()
         # Chains that do not expire after a timeout.
         self.persistent_networks = self.config.get_above_chain('persistent_networks', [])
         self.chain_interval = int(self.config.get_above_chain('chain_network_timeout', 15))
         self.lock = Lock()
+        self.timer_lock = Lock()
         self.plugins = plugins
+        self.start()
 
     def get_network_keys(self):
         with self.lock:
@@ -71,11 +64,13 @@ class NetworkController(util.DaemonThread):
 
         Creates a new Network instance if necessary.
         """
+        needs_start = True
         with self.lock:
             instance = self.networks.get(chaincode)
             if instance:
-                self.timers[chaincode].restart()
-        if instance is None:
+                needs_start = False
+                self.restart_timer(chaincode)
+        if needs_start:
             instance = self._start_network(chaincode)
         return instance
 
@@ -86,7 +81,7 @@ class NetworkController(util.DaemonThread):
         if disable:
             self.remove_network(chaincode)
         else:
-            self.ping(chaincode)
+            self.restart_timer(chaincode)
 
     def remove_network(self, chaincode):
         """Stop the Network instance for chaincode."""
@@ -94,26 +89,59 @@ class NetworkController(util.DaemonThread):
             instance = self.networks.get(chaincode)
             if instance:
                 instance.stop()
-                self.networks[chaincode] = None
-                if self.timers.get(chaincode):
-                    self.timers[chaincode].cancel()
-                self.timers[chaincode] = None
+                self.stop_timer(chaincode)
+                del self.networks[chaincode]
 
     def _start_network(self, chaincode):
         with self.lock:
             if chaincode in self.networks:
                 return self.networks[chaincode]
+            self.restart_timer(chaincode)
             # Start a Network instance if necessary
             network = self.networks[chaincode] = Network(self.config, self.plugins, chaincode)
             network.start()
-            timer = self.timers[chaincode] = ChainTimer(self, chaincode, self.chain_interval)
-            timer.start()
             return network
 
     def ping(self, chaincode):
-        """Keep a Network instance alive."""
-        with self.lock:
-            self.timers[chaincode].restart()
+        """Keep a Network instance alive.
+
+        This is called by client code.
+        """
+        self.restart_timer(chaincode)
+
+    def timer_is_stopped(self, chaincode):
+        """Get whether the timer for chaincode is stopped."""
+        with self.timer_lock:
+            return self.timers[chaincode].stopped.is_set()
+
+    def get_timer_start(self, chaincode):
+        """Get the starting time of the timer for chaincode."""
+        with self.timer_lock:
+            return self.timers[chaincode].start_time
+
+    def stop_timer(self, chaincode):
+        """Stop the timer for chaincode so that it won't be monitored."""
+        with self.timer_lock:
+            self.timers[chaincode].stopped.set()
+
+    def restart_timer(self, chaincode):
+        """Restart the timer for chaincode."""
+        with self.timer_lock:
+            self.timers[chaincode].stopped.set()
+            self.timers[chaincode].start_time = time.time()
+            self.timers[chaincode].stopped.clear()
+
+    def run(self):
+        while self.is_running():
+            now = time.time()
+            chaincodes = self.get_network_keys()
+            for chaincode in chaincodes:
+                # Don't monitor stopped timers.
+                if self.timer_is_stopped(chaincode):
+                    continue
+                # Expire the network if the timer has exceeded its time.
+                if now - self.get_timer_start(chaincode) >= self.chain_interval:
+                    self.expire_network(chaincode)
 
     def stop(self):
         for i in self.networks.keys():
