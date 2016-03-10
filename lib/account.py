@@ -227,7 +227,7 @@ class OldAccount(Account):
         secexp = ( secexp + self.get_sequence(self.mpk, for_change, n) ) % order
         pk = number_to_string( secexp, generator_secp256k1.order() )
         compressed = False
-        return SecretToASecret( pk, compressed )
+        return SecretToASecret( pk, compressed, self.active_chain.wif_version )
 
 
     def get_private_key(self, sequence, wallet, password):
@@ -332,7 +332,7 @@ class BIP32_Account(Account):
             if not xpriv:
                 continue
             _, _, _, c, k = deserialize_xkey(xpriv)
-            pk = bip32_private_key( sequence, k, c )
+            pk = bip32_private_key( sequence, k, c, self.active_chain.wif_version )
             out.append(pk)
         return out
 

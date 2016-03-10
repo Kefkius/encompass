@@ -263,7 +263,7 @@ def PrivKeyToSecret(privkey):
 
 
 def SecretToASecret(secret, compressed=False, addrtype=0):
-    vchIn = chr((addrtype+128)&255) + secret
+    vchIn = chr(addrtype) + secret
     if compressed: vchIn += '\01'
     return EncodeBase58Check(vchIn)
 
@@ -753,7 +753,7 @@ def bip32_public_derivation(xpub, branch, sequence, testnet=False):
     return EncodeBase58Check(xpub)
 
 
-def bip32_private_key(sequence, k, chain):
+def bip32_private_key(sequence, k, chain, addrtype=0):
     for i in sequence:
         k, chain = CKD_priv(k, chain, i)
-    return SecretToASecret(k, True)
+    return SecretToASecret(k, True, addrtype)

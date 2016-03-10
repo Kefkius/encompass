@@ -1260,7 +1260,7 @@ class Abstract_Wallet(PrintError):
                     xprv = self.get_master_private_key(k, password)
                     if xprv:
                         _, _, _, c, k = deserialize_xkey(xprv)
-                        return bip32_private_key(sequence, k, c)
+                        return bip32_private_key(sequence, k, c, self.storage.active_chain.wif_version)
         elif x_pubkey[0:2] == 'fe':
             xpub, sequence = OldAccount.parse_xpubkey(x_pubkey)
             for k, account in self.accounts.items():

@@ -4,7 +4,10 @@ from lib import account
 from lib import wallet
 from lib import chainparams
 
-chainparams.init_chains()
+def setupModule():
+    global bitcoin_chain
+    chainparams.init_chains()
+    chainparams.set_active_chain('BTC')
 
 class DummyStorage(wallet.WalletStorage):
     def __init__(self, d):
