@@ -43,8 +43,6 @@ class NetworkController(util.DaemonThread):
         self.timers = {}
         for chain in chainparams.known_chain_codes:
             self.timers[chain] = ChainNetworkTimer()
-        # Chains that do not expire after a timeout.
-        self.persistent_networks = self.config.get_above_chain('persistent_networks', [])
         self.chain_interval = int(self.config.get_above_chain('chain_network_timeout', 15))
         self.lock = Lock()
         self.timer_lock = Lock()
@@ -54,10 +52,6 @@ class NetworkController(util.DaemonThread):
     def get_network_keys(self):
         with self.lock:
             return self.networks.keys()
-
-    def get_persistent_networks(self):
-        with self.lock:
-            return list(self.persistent_networks)
 
     def get_network(self, chaincode):
         """Get the Network instance for chaincode.
@@ -77,7 +71,7 @@ class NetworkController(util.DaemonThread):
     def expire_network(self, chaincode):
         """Stop Network instance for chaincode when timer expires."""
         with self.lock:
-            disable = chaincode not in self.persistent_networks
+            disable = chaincode not in self.config.get_above_chain('favorite_chains', [])
         if disable:
             self.remove_network(chaincode)
         else:

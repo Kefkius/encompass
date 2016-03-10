@@ -94,7 +94,7 @@ class FavoriteCurrenciesDialog(CurrenciesCheckboxDialog):
 
     def save_favorites(self):
         print_error("Saving new favorite chains: {}".format(map(lambda x: x.encode('ascii', 'ignore'), self.favorites)))
-        self.parent.config.set_key_above_chain('favorite_chains', self.favorites, True)
+        self.parent.set_favorite_currencies(self.favorites)
 
 
 

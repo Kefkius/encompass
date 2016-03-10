@@ -546,6 +546,9 @@ class ElectrumWindow(QMainWindow, PrintError):
 
     def change_favorite_currencies(self):
         FavoriteCurrenciesDialog(self).exec_()
+
+    def set_favorite_currencies(self, new_favorites):
+        self.config.set_key_above_chain('favorite_chains', new_favorites, True)
         self.update_currency_changer()
 
     def update_status(self):

@@ -243,7 +243,7 @@ class GlobalOptions(QWidget):
         favs_value = QLabel(fav_chains_list)
         favs_button = QPushButton(_('Change Favorites'))
         def do_fav():
-            FavoriteCurrenciesDialog(self).exec_()
+            FavoriteCurrenciesDialog(self.gui).exec_()
             fav_chains_list = sorted(map(lambda x: x.encode('ascii', 'ignore'), self.config.get_above_chain('favorite_chains', [])))
             if not fav_chains_list: fav_chains_list = 'None'
             fav_chains_list = str(fav_chains_list).replace("'", "")
