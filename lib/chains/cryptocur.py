@@ -89,6 +89,8 @@ class CryptoCur(object):
     ext_priv_version = ''
     # "Magic" bytes for signing/verifying
     message_magic = ''
+    # URI scheme
+    uri_scheme = ''
 
     ### Constants ###
 
@@ -126,6 +128,10 @@ class CryptoCur(object):
                 setattr(self, attr, data_type())
         if not self.base_units:
             self.base_units = {self.code: 8}
+
+    def uri_prefix(self):
+        """Return the prefix that URIs start with."""
+        return self.uri_scheme + ':'
 
     def hash_algo(self, name):
         """Return the coinhash algorithm for hashing name."""

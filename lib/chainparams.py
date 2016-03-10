@@ -39,6 +39,11 @@ def init_chains():
         except ImportError:
             m = importlib.import_module('.' + module_name, 'chains')
         cls = m.get_class()
+
+        # Assign URI scheme if not specified.
+        if not cls.uri_scheme:
+            cls.uri_scheme = cls.coin_name.lower()
+
         params = ChainParams(cls.chain_index, cls.coin_name, cls.code, cls)
         known_chains.append(params)
 

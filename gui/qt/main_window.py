@@ -738,7 +738,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         req = self.wallet.receive_requests[addr]
         message = self.wallet.labels.get(addr, '')
         amount = req['amount']
-        URI = util.create_URI(addr, amount, message)
+        URI = util.create_URI(addr, amount, message, self.wallet_chain())
         if req.get('time'):
             URI += "&time=%d"%req.get('time')
         if req.get('exp'):
@@ -924,7 +924,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         amount = self.receive_amount_e.get_amount()
         message = unicode(self.receive_message_e.text()).encode('utf8')
         self.save_request_button.setEnabled((amount is not None) or (message != ""))
-        uri = util.create_URI(addr, amount, message)
+        uri = util.create_URI(addr, amount, message, self.wallet_chain())
         self.receive_qr.setData(uri)
         if self.qr_window and self.qr_window.isVisible():
             self.qr_window.set_content(addr, amount, message, uri)
@@ -1386,9 +1386,9 @@ class ElectrumWindow(QMainWindow, PrintError):
         if not URI:
             return
         try:
-            out = util.parse_URI(unicode(URI))
+            out = util.parse_URI(unicode(URI), self.wallet_chain())
         except Exception as e:
-            QMessageBox.warning(self, _('Error'), _('Invalid bitcoin URI:') + '\n' + str(e), _('OK'))
+            QMessageBox.warning(self, _('Error'), _('Invalid URI:') + '\n' + str(e), _('OK'))
             return
         self.tabs.setCurrentIndex(1)
 
@@ -2306,7 +2306,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         if not data:
             return
         # if the user scanned a bitcoin URI
-        if data.startswith("bitcoin:"):
+        if data.startswith(self.wallet_chain().uri_prefix()):
             self.pay_to_URI(data)
             return
         # else if the user scanned an offline signed tx

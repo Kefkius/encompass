@@ -1,5 +1,15 @@
 import unittest
 from lib.util import format_satoshis, parse_URI
+from lib import chainparams
+
+bitcoin_chain = None
+
+def setupModule():
+    global bitcoin_chain
+    chainparams.init_chains()
+    chainparams.set_active_chain('BTC')
+    bitcoin_chain = chainparams.get_chain_instance('BTC')
+
 
 class TestUtil(unittest.TestCase):
 
@@ -18,13 +28,15 @@ class TestUtil(unittest.TestCase):
         expected = "-0.00001234"
         self.assertEqual(expected, result)
 
-    def _do_test_parse_URI(self, uri, expected):
-        result = parse_URI(uri)
+    def _do_test_parse_URI(self, uri, expected, chain='BTC'):
+        result = parse_URI(uri, chainparams.get_chain_instance(chain))
         self.assertEqual(expected, result)
 
     def test_parse_URI_address(self):
         self._do_test_parse_URI('bitcoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma',
                                 {'address': '15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma'})
+        self._do_test_parse_URI('litecoin:LPzGaoLUtXFkmNo3u1chDxGxDnSaBQTTxm',
+                                {'address': 'LPzGaoLUtXFkmNo3u1chDxGxDnSaBQTTxm'}, chain='LTC')
 
     def test_parse_URI_only_address(self):
         self._do_test_parse_URI('15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma',
@@ -60,11 +72,11 @@ class TestUtil(unittest.TestCase):
                                 {'r': 'http://domain.tld/page?h=2a8628fc2fbe'})
 
     def test_parse_URI_invalid_address(self):
-        self.assertRaises(AssertionError, parse_URI, 'bitcoin:invalidaddress')
+        self.assertRaises(AssertionError, parse_URI, 'bitcoin:invalidaddress', bitcoin_chain)
 
     def test_parse_URI_invalid(self):
-        self.assertRaises(AssertionError, parse_URI, 'notbitcoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma')
+        self.assertRaises(AssertionError, parse_URI, 'notbitcoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma', bitcoin_chain)
 
     def test_parse_URI_parameter_polution(self):
-        self.assertRaises(Exception, parse_URI, 'bitcoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma?amount=0.0003&label=test&amount=30.0')
+        self.assertRaises(Exception, parse_URI, 'bitcoin:15mKKb2eos1hWa6tisdPwwDC1a5J1y9nma?amount=0.0003&label=test&amount=30.0', bitcoin_chain)
 

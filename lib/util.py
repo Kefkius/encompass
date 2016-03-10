@@ -250,7 +250,7 @@ def time_difference(distance_in_time, include_seconds):
 #_ud = re.compile('%([0-9a-hA-H]{2})', re.MULTILINE)
 #urldecode = lambda x: _ud.sub(lambda m: chr(int(m.group(1), 16)), x)
 
-def parse_URI(uri):
+def parse_URI(uri, required_chain=None):
     import bitcoin
     from bitcoin import COIN
 
@@ -259,7 +259,8 @@ def parse_URI(uri):
         return {'address': uri}
 
     u = urlparse.urlparse(uri)
-    assert u.scheme == 'bitcoin'
+    if required_chain:
+        assert u.scheme == required_chain.uri_scheme
 
     address = u.path
 
@@ -276,6 +277,10 @@ def parse_URI(uri):
 
     out = {k: v[0] for k, v in pq.items()}
     if address:
+        versions = None
+        # Require a valid address if chain is specified.
+        if required_chain:
+            versions = (required_chain.p2pkh_version, required_chain.p2sh_version)
         assert bitcoin.is_address(address)
         out['address'] = address
     if 'amount' in out:
@@ -300,9 +305,14 @@ def parse_URI(uri):
     return out
 
 
-def create_URI(addr, amount, message):
+def create_URI(addr, amount, message, chain=None):
     import bitcoin
-    if not bitcoin.is_address(addr):
+    scheme = 'bitcoin'
+    versions = None
+    if chain:
+        scheme = chain.uri_scheme
+        versions = (chain.p2pkh_version, chain.p2sh_version)
+    if not bitcoin.is_address(addr, versions):
         return ""
     query = []
     if amount:
@@ -311,7 +321,7 @@ def create_URI(addr, amount, message):
         if type(message) == unicode:
             message = message.encode('utf8')
         query.append('message=%s'%urllib.quote(message))
-    p = urlparse.ParseResult(scheme='bitcoin', netloc='', path=addr, params='', query='&'.join(query), fragment='')
+    p = urlparse.ParseResult(scheme=scheme, netloc='', path=addr, params='', query='&'.join(query), fragment='')
     return urlparse.urlunparse(p)
 
 
