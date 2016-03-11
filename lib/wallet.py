@@ -106,10 +106,7 @@ class WalletStorage(PrintError):
         return v
 
     def put_above_chain(self, key, value, save = True):
-        try:
-            json.dumps(key)
-            json.dumps(value)
-        except:
+        if not self.is_valid_data(key, value):
             self.print_error("json error: cannot save", key)
             return
         with self.lock:
@@ -140,10 +137,7 @@ class WalletStorage(PrintError):
             return v
 
     def put(self, key, value, save = True):
-        try:
-            json.dumps(key)
-            json.dumps(value)
-        except Exception:
+        if not self.is_valid_data(key, value):
             self.print_error('json error: cannot save', key)
             return
         chaincode = self.active_chain.code
@@ -161,6 +155,25 @@ class WalletStorage(PrintError):
 
     def get_for_chain(self, chaincode, key, default=None):
         return self.get_above_chain(chaincode, {}).get(key, default)
+
+    def put_for_chain(self, chaincode, key, value, save = True):
+        if not self.is_valid_data(key, value):
+            self.print_error('json error: cannot save', key)
+            return
+        if chaincode == self.active_chain.code:
+            self.print_error('not modifying active chain storage', chaincode)
+            return
+        chain_section = self.get_above_chain(chaincode, {})
+        chain_section[key] = copy.deepcopy(value)
+        self.put_above_chain(chaincode, chain_section, save)
+
+    def is_valid_data(self, key, value):
+        try:
+            json.dumps(key)
+            json.dumps(value)
+            return True
+        except Exception:
+            return False
 
     def write(self):
         assert not threading.currentThread().isDaemon()

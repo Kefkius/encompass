@@ -2387,7 +2387,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         e.setReadOnly(True)
         vbox.addWidget(e)
 
-        defaultname = 'electrum-private-keys.csv'
+        defaultname = 'encompass-private-keys-%s.csv' % self.wallet_chain().code.lower()
         select_msg = _('Select file to export your private keys to')
         hbox, filename_e, csv_button = filename_field(self, self.config, defaultname, select_msg)
         vbox.addLayout(hbox)
@@ -2456,17 +2456,26 @@ class ElectrumWindow(QMainWindow, PrintError):
             f = open(labelsFile, 'r')
             data = f.read()
             f.close()
-            for key, value in json.loads(data).items():
-                self.wallet.set_label(key, value)
+            for chaincode, chain_labels in json.loads(data).items():
+                if chaincode == self.wallet_chain().code:
+                    for key, value in chain_labels.items():
+                        self.wallet.set_label(key, value)
+                else:
+                    self.wallet.storage.put_for_chain(chaincode, 'labels', chain_labels)
             QMessageBox.information(None, _("Labels imported"), _("Your labels were imported from")+" '%s'" % str(labelsFile))
+            self.labelsChanged.emit()
         except (IOError, os.error), reason:
             QMessageBox.critical(None, _("Unable to import labels"), _("Encompass was unable to import your labels.")+"\n" + str(reason))
 
 
     def do_export_labels(self):
-        labels = self.wallet.labels
+        labels = {}
+        for chaincode in chainparams.known_chain_codes:
+            chain_labels = self.wallet.storage.get_for_chain(chaincode, 'labels', {})
+            if chain_labels:
+                labels[chaincode] = chain_labels
         try:
-            fileName = self.getSaveFileName(_("Select file to save your labels"), 'electrum_labels.dat', "*.dat")
+            fileName = self.getSaveFileName(_("Select file to save your labels"), 'encompass_labels.dat', "*.dat")
             if fileName:
                 with open(fileName, 'w+') as f:
                     json.dump(labels, f)
