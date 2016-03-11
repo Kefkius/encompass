@@ -263,19 +263,27 @@ def PrivKeyToSecret(privkey):
 
 
 def SecretToASecret(secret, compressed=False, addrtype=0):
+    """Convert private key bytes to WIF."""
     vchIn = chr(addrtype) + secret
     if compressed: vchIn += '\01'
     return EncodeBase58Check(vchIn)
 
-def ASecretToSecret(key, addrtype=0):
+def ASecretToSecret(key, active_chain=None):
+    """Convert WIF to bytes.
+
+    If active_chain is specified, the WIF version byte will be checked.
+    """
     vch = DecodeBase58Check(key)
-    if vch and vch[0] == chr((addrtype+128)&255):
+    if vch and active_chain is None:
+        return vch[1:]
+
+    if vch and vch[0] == chr(active_chain.wif_version):
         return vch[1:]
     else:
         return False
 
-def regenerate_key(sec):
-    b = ASecretToSecret(sec)
+def regenerate_key(sec, active_chain=None):
+    b = ASecretToSecret(sec, active_chain)
     if not b:
         return False
     b = b[0:32]
@@ -295,9 +303,10 @@ def is_compressed(sec):
     return len(b) == 33
 
 
-def public_key_from_private_key(sec):
+def public_key_from_private_key(sec, active_chain=None):
+    """Get hex-encoded public key from WIF private key."""
     # rebuild public key from private key, compressed or uncompressed
-    pkey = regenerate_key(sec)
+    pkey = regenerate_key(sec, active_chain)
     assert pkey
     compressed = is_compressed(sec)
     public_key = GetPubKey(pkey.pubkey, compressed)
@@ -305,6 +314,7 @@ def public_key_from_private_key(sec):
 
 
 def address_from_private_key(sec, active_chain=None):
+    """Get address from WIF private key."""
     if active_chain is None:
         active_chain = chainparams.get_active_chain()
     public_key = public_key_from_private_key(sec)
