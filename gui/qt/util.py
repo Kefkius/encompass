@@ -24,7 +24,7 @@ BLACK_FG = "QWidget {color:black;}"
 def get_coin_icon(chaincode='BTC'):
     coin_icon_name = ':icons/coin_' + chaincode.lower() + '.png'
     if not QFile(coin_icon_name).exists():
-        coin_icon_name = ':icons/coin_btc.png'
+        coin_icon_name = ':icons/coin_unknown.png'
     return QIcon(coin_icon_name)
 
 class WaitingDialog(QThread):
