@@ -63,10 +63,10 @@ class OpenFileEventFilter(QObject):
 
 class ElectrumGui:
 
-    def __init__(self, config, network_controller, plugins):
+    def __init__(self, config, daemon, plugins):
         set_language(config.get_above_chain('language'))
-        self.network_controller = network_controller
         self.config = config
+        self.daemon = daemon
         self.plugins = plugins
         self.windows = []
         self.efilter = OpenFileEventFilter(self.windows)
@@ -84,6 +84,7 @@ class ElectrumGui:
         self.build_tray_menu()
         self.tray.show()
         self.app.connect(self.app, QtCore.SIGNAL('new_window'), self.start_new_window)
+        run_hook('init_qt', self)
 
     def build_tray_menu(self):
         # Avoid immediate GC of old menu when window closed via its action
@@ -122,69 +123,28 @@ class ElectrumGui:
         for window in self.windows:
             window.close()
 
-    def load_wallet_file(self, filename):
-        try:
-            chain = chainparams.get_chain_instance(self.config.get_active_chain_code())
-            storage = WalletStorage(filename, chain)
-        except Exception as e:
-            QMessageBox.information(None, _('Error'), str(e), _('OK'))
-            return
-        if not storage.file_exists:
-            recent = self.config.get_above_chain('recently_open', [])
-            if filename in recent:
-                recent.remove(filename)
-                self.config.set_key_above_chain('recently_open', recent)
-            action = 'new'
-        else:
-            try:
-                wallet = Wallet(storage)
-            except BaseException as e:
-                traceback.print_exc(file=sys.stdout)
-                QMessageBox.warning(None, _('Warning'), str(e), _('OK'))
-                return
-            action = wallet.get_action()
-        # run wizard
-        network = self.network_controller.get_network(self.config.get_active_chain_code())
-        if action is not None:
-            wizard = InstallWizard(self.config, network, storage)
-            wallet = wizard.run(action)
-            # keep current wallet
-            if not wallet:
-                return
-        else:
-            wallet.start_threads(network)
-
-        return wallet
-
     def get_wallet_folder(self):
         #return os.path.dirname(os.path.abspath(self.wallet.storage.path if self.wallet else self.wallet.storage.path))
         return os.path.dirname(os.path.abspath(self.config.get_wallet_path()))
 
-    def new_wallet(self):
-        wallet_folder = self.get_wallet_folder()
-        i = 1
-        while True:
-            filename = "wallet_%d"%i
-            if filename in os.listdir(wallet_folder):
-                i += 1
-            else:
-                break
-        filename = line_dialog(None, _('New Wallet'), _('Enter file name') + ':', _('OK'), filename)
-        if not filename:
-            return
-        full_path = os.path.join(wallet_folder, filename)
-        storage = WalletStorage(full_path, chainparams.get_active_chain())
-        if storage.file_exists:
-            QMessageBox.critical(None, "Error", _("File exists"))
-            return
-        wizard = InstallWizard(self.config, self.network_controller.get_network(self.config.get_active_chain_code()), storage)
-        wallet = wizard.run('new')
-        if wallet:
-            self.new_window(full_path)
-
     def new_window(self, path, uri=None):
         # Use a signal as can be called from daemon thread
         self.app.emit(SIGNAL('new_window'), path, uri)
+
+    def create_window_for_wallet(self, wallet):
+        w = ElectrumWindow(wallet, self)
+        self.windows.append(w)
+        self.build_tray_menu()
+        # FIXME: Remove in favour of the load_wallet hook
+        run_hook('on_new_window', w)
+        return w
+
+    def get_wizard(self):
+#        return InstallWizard(self.config, network, storage)
+        return InstallWizard(self.config, self.app, self.plugins)
+
+    def load_wallet(self, path, active_chain=None):
+        return self.daemon.load_wallet(path, self.get_wizard, active_chain)
 
     def start_new_window(self, path, uri):
         for w in self.windows:
@@ -192,27 +152,10 @@ class ElectrumGui:
                 w.bring_to_top()
                 break
         else:
-            wallet = self.load_wallet_file(path)
+            wallet = self.load_wallet(path)
             if not wallet:
                 return
-            w = ElectrumWindow(self.config, self.network_controller.get_network(self.config.get_active_chain_code()), self)
-            w.connect_slots(self.timer)
-
-            # load new wallet in gui
-            w.load_wallet(wallet)
-            # save path
-            if self.config.get_above_chain('wallet_path') is None:
-                self.config.set_key_above_chain('gui_last_wallet', path)
-            # add to recently visited
-            w.update_recently_visited(path)
-            # initial configuration
-            if self.config.get_above_chain('hide_gui') is True and self.tray.isVisible():
-                w.hide()
-            else:
-                w.show()
-            self.windows.append(w)
-            self.build_tray_menu()
-            self.plugins.on_new_window(w)
+            w = self.create_window_for_wallet(wallet)
 
         if uri:
             w.pay_to_URI(uri)
@@ -222,11 +165,15 @@ class ElectrumGui:
     def close_window(self, window):
         self.windows.remove(window)
         self.build_tray_menu()
-        self.plugins.on_close_window(window)
+        # save wallet path of last open window
+        if self.config.get_above_chain('wallet_path') is None and not self.windows:
+            path = window.wallet.storage.path
+            self.config.set_key_above_chain('gui_last_wallet', path)
+        run_hook('on_close_window', window)
 
     def main(self):
         self.timer.start()
-
+        # open last wallet
         last_wallet = self.config.get_above_chain('gui_last_wallet')
         if last_wallet is not None and self.config.get_above_chain('wallet_path') is None:
             if os.path.exists(last_wallet):
@@ -240,6 +187,9 @@ class ElectrumGui:
 
         # main loop
         self.app.exec_()
+
+        # Shut down the timer cleanly.
+        self.timer.stop()
 
         # clipboard persistence. see http://www.mail-archive.com/pyqt@riverbankcomputing.com/msg17328.html
         event = QtCore.QEvent(QtCore.QEvent.Clipboard)

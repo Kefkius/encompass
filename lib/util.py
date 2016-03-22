@@ -18,6 +18,12 @@ class InvalidPassword(Exception):
     def __str__(self):
         return _("Incorrect password")
 
+# Throw this exception to unwind the stack like when an error occurs.
+# However unlike other exceptions the user won't be informed.
+class UserCancelled(Exception):
+    '''An exception that is suppressed from the user'''
+    pass
+
 class MyEncoder(json.JSONEncoder):
     def default(self, obj):
         from transaction import Transaction
@@ -113,12 +119,22 @@ def print_msg(*args):
     sys.stdout.flush()
 
 def print_json(obj):
+    s = json_encode(obj)
+    sys.stdout.write(s + "\n")
+    sys.stdout.flush()
+
+def json_encode(obj):
     try:
         s = json.dumps(obj, sort_keys = True, indent = 4, cls=MyEncoder)
     except TypeError:
         s = repr(obj)
-    sys.stdout.write(s + "\n")
-    sys.stdout.flush()
+    return s
+
+def json_decode(x):
+    try:
+        return json.loads(x, parse_float=decimal.Decimal)
+    except:
+        return x
 
 
 # decorator that prints execution time

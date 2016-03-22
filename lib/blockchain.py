@@ -126,7 +126,7 @@ class Blockchain(util.PrintError):
         # The chain is complete.  Reverse to order by increasing height
         chain.reverse()
         if self.verify_chain(chain):
-            self.print_error("connected at height:", previous_height)
+            self.print_error("new height:", previous_height + len(chain))
             for header in chain:
                 self.save_header(header)
             return True

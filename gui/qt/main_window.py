@@ -54,6 +54,7 @@ from qrtextedit import ScanQRTextEdit, ShowQRTextEdit
 from transaction_dialog import show_transaction
 from currency_dialog import ChangeCurrencyDialog, FavoriteCurrenciesDialog
 from settings_dialog import SettingsDialog
+from password_dialog import PasswordDialog, PW_CHANGE
 
 
 
@@ -127,12 +128,11 @@ expiration_values = [
 class ElectrumWindow(QMainWindow, PrintError):
     labelsChanged = pyqtSignal()
 
-    def __init__(self, config, network, gui_object):
+    def __init__(self, wallet, gui_object):
         QMainWindow.__init__(self)
 
-        self.config = config
-        self.network = network
-        self.wallet = None
+        self.config = config = gui_object.config
+        self.network = gui_object.daemon.network_controller.get_network(wallet.storage.active_chain.code)
         self.gui_object = gui_object
         self.invoices = gui_object.invoices
         self.contacts = gui_object.contacts
@@ -184,29 +184,20 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.labelsChanged.connect(self.update_tabs)
         self.history_list.setFocus(True)
 
-        self.callbacks = {
-            'updated': lambda: self.need_update.set(),
-            'new_transaction': self.new_transaction,
-        }
-        for name, method in [
-            ('status', self.update_status),
-            ('close', self.close),
-            ('banner', self.console.showMessage),
-            ('verified', self.history_list.update_item)
-        ]:
-            self.connect(self, QtCore.SIGNAL(name), method)
-            self.callbacks.update({name: lambda *params: self.emit(QtCore.SIGNAL(name), *params)})
+        self.interests = ['updated', 'new_transaction', 'status',
+                     'banner', 'verified']
 
         # network callbacks
         if self.network:
-            for name, method in self.callbacks.items():
-                self.network.register_callback(name, method)
-
+            self.connect(self, QtCore.SIGNAL('network'), self.on_network_qt)
+            # To avoid leaking references to "self" that prevent the
+            # window from being GC-ed when closed, callbacks should be
+            # methods of this class only, and specifically not be
+            # partials, lambdas or methods of subobjects.  Hence...
+            self.network.register_callback(self.on_network, self.interests)
             # set initial message
             self.console.showMessage(self.network.banner)
 
-        self.change_currency_window = ChangeCurrencyDialog(self)
-        self.change_currency_window.view.activated.connect(self.on_currency_selected)
 
         self.payment_request = None
         self.qr_window = None
@@ -215,6 +206,11 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.fetch_alias()
         self.require_fee_update = False
         self.tx_notifications = []
+        self.load_wallet(wallet)
+        self.connect_slots(gui_object.timer)
+
+        self.change_currency_window = ChangeCurrencyDialog(self)
+        self.change_currency_window.view.activated.connect(self.on_currency_selected)
 
     def diagnostic_name(self):
         return "%s/%s" % (PrintError.diagnostic_name(self),
@@ -233,10 +229,27 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.show()
         self.raise_()
 
-    def register_callback(self, name, method):
-        """ run callback in the qt thread """
-        self.connect(self, QtCore.SIGNAL(name), method)
-        self.network.register_callback(name, lambda *params: self.emit(QtCore.SIGNAL(name), *params))
+    def on_network(self, event, *args):
+        if event == 'updated':
+            self.need_update.set()
+        elif event == 'new_transaction':
+            self.tx_notifications.append(args[0])
+        elif event in ['status', 'banner', 'verified']:
+            # Handle in GUI thread
+            self.emit(QtCore.SIGNAL('network'), event, *args)
+        else:
+            self.print_error("unexpected network message:", event, args)
+
+    def on_network_qt(self, event, *args):
+        # Handle a network message in the GUI thread
+        if event == 'status':
+            self.update_status()
+        elif event == 'banner':
+            self.console.showMessage(args[0])
+        elif event == 'verified':
+            self.history_list.update_item(*args)
+        else:
+            self.print_error("unexpected network_qt signal:", event, args)
 
     def wallet_chain(self):
         return self.wallet.storage.active_chain
@@ -268,17 +281,14 @@ class ElectrumWindow(QMainWindow, PrintError):
         if self.wallet:
             self.print_error('close_wallet', self.wallet.storage.path)
             self.wallet.storage.put('accounts_expanded', self.accounts_expanded)
-            self.wallet.stop_threads()
         run_hook('close_wallet')
 
     def load_wallet(self, wallet):
         self.wallet = wallet
+        self.update_recently_visited(wallet.storage.path)
         # backward compatibility
         self.update_wallet_format()
         self.import_old_contacts()
-        # address used to create a dummy transaction and estimate transaction fee
-        a = self.wallet.addresses(False)
-        self.dummy_address = a[0] if a else None
         self.accounts_expanded = self.wallet.storage.get('accounts_expanded',{})
         self.current_account = self.wallet.storage.get("current_account", None)
         title = 'Encompass %s  -  %s' % (self.wallet.electrum_version, self.wallet.basename())
@@ -339,7 +349,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             self.wallet.synchronize()
 
     def open_wallet(self):
-        wallet_folder = self.gui_object.get_wallet_folder()
+        wallet_folder = self.get_wallet_folder()
         filename = unicode(QFileDialog.getOpenFileName(self, "Select your wallet file", wallet_folder))
         if not filename:
             return
@@ -363,14 +373,13 @@ class ElectrumWindow(QMainWindow, PrintError):
 
 
 
-    def update_recently_visited(self, filename=None):
+    def update_recently_visited(self, filename):
         recent = self.config.get_above_chain('recently_open', [])
-        if filename:
-            if filename in recent:
-                recent.remove(filename)
-            recent.insert(0, filename)
-            recent = recent[:5]
-            self.config.set_key_above_chain('recently_open', recent)
+        if filename in recent:
+            recent.remove(filename)
+        recent.insert(0, filename)
+        recent = recent[:5]
+        self.config.set_key_above_chain('recently_open', recent)
         self.recently_visited_menu.clear()
         for i, k in enumerate(sorted(recent)):
             b = os.path.basename(k)
@@ -379,17 +388,38 @@ class ElectrumWindow(QMainWindow, PrintError):
             self.recently_visited_menu.addAction(b, loader(k)).setShortcut(QKeySequence("Ctrl+%d"%(i+1)))
         self.recently_visited_menu.setEnabled(len(recent))
 
+    def get_wallet_folder(self):
+        return os.path.dirname(os.path.abspath(self.config.get_wallet_path()))
+
+    def new_wallet(self):
+        wallet_folder = self.get_wallet_folder()
+        i = 1
+        while True:
+            filename = "wallet_%d" % i
+            if filename in os.listdir(wallet_folder):
+                i += 1
+            else:
+                break
+        filename = line_dialog(self, _('New Wallet'), _('Enter file name')
+                               + ':', _('OK'), filename)
+        if not filename:
+            return
+        full_path = os.path.join(wallet_folder, filename)
+        if os.path.exists(full_path):
+            self.show_critical(_("File exists"))
+            return
+        self.gui_object.start_new_window(full_path, None)
+
     def init_menubar(self):
         menubar = QMenuBar()
 
         file_menu = menubar.addMenu(_("&File"))
         self.recently_visited_menu = file_menu.addMenu(_("&Recently open"))
         file_menu.addAction(_("&Open"), self.open_wallet).setShortcut(QKeySequence.Open)
-        file_menu.addAction(_("&New/Restore"), self.gui_object.new_wallet).setShortcut(QKeySequence.New)
+        file_menu.addAction(_("&New/Restore"), self.new_wallet).setShortcut(QKeySequence.New)
         file_menu.addAction(_("&Save Copy"), self.backup_wallet).setShortcut(QKeySequence.SaveAs)
         file_menu.addSeparator()
         file_menu.addAction(_("&Quit"), self.close)
-        self.update_recently_visited()
 
         wallet_menu = menubar.addMenu(_("&Wallet"))
         wallet_menu.addAction(_('&Change currency'), self.change_currency_dialog)
@@ -456,10 +486,6 @@ class ElectrumWindow(QMainWindow, PrintError):
          ])
         QMessageBox.information(self, "Encompass - " + _("Reporting Bugs"), msg)
 
-
-    def new_transaction(self, tx):
-        self.tx_notifications.append(tx)
-
     def notify_transactions(self):
         if not self.network or not self.network.is_connected():
             return
@@ -510,9 +536,10 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.connect(sender, QtCore.SIGNAL('timersignal'), self.timer_actions)
 
     def timer_actions(self):
+        # Note this runs in the GUI thread
         if self.need_update.is_set():
-            self.update_wallet()
             self.need_update.clear()
+            self.update_wallet()
         # resolve aliases
         self.payto_e.resolve()
         # update fee
@@ -521,17 +548,16 @@ class ElectrumWindow(QMainWindow, PrintError):
             self.require_fee_update = False
         # Keep Network instance alive.
         if self.network and self.network.is_connected():
-            self.gui_object.network_controller.ping(self.network.active_chain.code)
-        run_hook('timer_actions')
+            self.gui_object.daemon.network_controller.ping(self.network.active_chain.code)
 
     def format_amount(self, x, is_diff=False, whitespaces=False):
         return format_satoshis(x, is_diff, self.num_zeros, self.decimal_point, whitespaces)
 
     def format_amount_and_units(self, amount):
         text = self.format_amount(amount) + ' '+ self.base_unit()
-        x = run_hook('format_amount_and_units', amount)
-        if x:
-            text += x
+        x = run_hook('format_amount_and_units', self.wallet_chain().code, amount)
+        if text and x:
+            text += ' (%s)' % x
         return text
 
     def get_decimal_point(self):
@@ -579,7 +605,7 @@ class ElectrumWindow(QMainWindow, PrintError):
                 if x:
                     text +=  " [%s unmatured]"%(self.format_amount(x, True).strip())
                 # append fiat balance and price from exchange rate plugin
-                rate = run_hook('get_fiat_status_text', c + u + x)
+                rate = run_hook('get_fiat_status_text', self.wallet_chain().code, c + u + x)
                 if rate:
                     text += rate
                 icon = QIcon(":icons/status_connected.png")
@@ -1013,7 +1039,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             inputs = self.get_coins()
             for i in inputs:
                 self.wallet.add_input_info(i)
-            addr = self.payto_e.payto_address if self.payto_e.payto_address else self.dummy_address
+            addr = self.get_payto_or_dummy()
             output = ('address', addr, sendable)
             dummy_tx = Transaction.from_io(inputs, [output])
             if self.fee_e.get_amount() is None:
@@ -1084,6 +1110,9 @@ class ElectrumWindow(QMainWindow, PrintError):
     def update_fee(self):
         self.require_fee_update = True
 
+    def get_payto_or_dummy(self):
+        return self.payto_e.payto_address if self.payto_e.payto_address else self.wallet.dummy_address()
+
     def do_update_fee(self):
         '''Recalculate the fee.  If the fee was manually input, retain it, but
         still build the TX to see if there are enough funds.
@@ -1099,7 +1128,7 @@ class ElectrumWindow(QMainWindow, PrintError):
         else:
             fee = self.fee_e.get_amount() if freeze_fee else None
             if not outputs:
-                addr = self.payto_e.payto_address if self.payto_e.payto_address else self.dummy_address
+                addr = self.get_payto_or_dummy()
                 outputs = [('address', addr, amount)]
             try:
                 tx = self.wallet.make_unsigned_transaction(self.get_coins(), outputs, self.config, fee)
@@ -1313,39 +1342,35 @@ class ElectrumWindow(QMainWindow, PrintError):
         def broadcast_thread():
             # non-GUI thread
             pr = self.payment_request
-            if pr is None:
-                return self.wallet.sendtx(tx)
-            if pr.has_expired():
+            if pr and pr.has_expired():
                 self.payment_request = None
                 return False, _("Payment request has expired")
-            status, msg =  self.wallet.sendtx(tx)
-            if not status:
-                return False, msg
-            key = pr.get_id()
-            self.invoices.set_paid(key, tx.hash())
-            self.payment_request = None
-            refund_address = self.wallet.addresses()[0]
-            ack_status, ack_msg = pr.send_ack(str(tx), refund_address)
-            if ack_status:
-                msg = ack_msg
+            status, msg = self.network.broadcast(tx)
+            if pr and status is True:
+                pr.set_paid(tx.hash())
+                self.invoices.save()
+                self.payment_request = None
+                refund_address = self.wallet.addresses()[0]
+                ack_status, ack_msg = pr.send_ack(str(tx), refund_address)
+                if ack_status:
+                    msg = ack_msg
             return status, msg
 
-        def broadcast_done(status, msg):
+        def broadcast_done(result):
             # GUI thread
-            if status:
-                if tx_desc is not None and tx.is_complete():
-                    self.wallet.set_label(tx.hash(), tx_desc)
-                QMessageBox.information(parent, '', _('Payment sent.') + '\n' + msg, _('OK'))
-                self.invoices_list.update()
-                self.do_clear()
-            else:
-                QMessageBox.warning(parent, _('Error'), msg, _('OK'))
-            self.send_button.setDisabled(False)
+            if result:
+                status, msg = result
+                if status:
+                    if tx_desc is not None and tx.is_complete():
+                        self.wallet.set_label(tx.hash(), tx_desc)
+                        parent.show_message(_('Payment sent.') + '\n' + msg)
+                        self.invoices_list.update()
+                        self.do_clear()
+                else:
+                    parent.show_error(msg)
 
-        if parent == None:
-            parent = self
-        self.waiting_dialog = WaitingDialog(parent, 'Broadcasting transaction...', broadcast_thread, broadcast_done)
-        self.waiting_dialog.start()
+        WaitingDialog(self, _('Broadcasting transaction...'),
+                      broadcast_thread, broadcast_done, self.on_error)
 
 
 
@@ -1822,7 +1847,7 @@ class ElectrumWindow(QMainWindow, PrintError):
                                  'window': self})
         console.updateNamespace({'util' : util, 'bitcoin':bitcoin})
 
-        c = commands.Commands(self.config, self.wallet, self.gui_object.network_controller, lambda: self.console.set_json(True))
+        c = commands.Commands(self.config, self.wallet, self.gui_object.daemon.network_controller, lambda: self.console.set_json(True))
         methods = {}
         def mkfunc(f, method):
             return lambda *args: apply( f, (method, args, self.password_dialog ))
@@ -1917,9 +1942,36 @@ class ElectrumWindow(QMainWindow, PrintError):
                 a.setEnabled(True)
 
     def change_password_dialog(self):
-        from password_dialog import PasswordDialog
-        d = PasswordDialog(self.wallet, self)
-        d.run()
+        msg = (_('Your wallet is encrypted. Use this dialog to change your '
+                 'password. To disable wallet encryption, enter an empty new '
+                 'password.') if self.wallet.use_encryption
+               else _('Your wallet keys are not encrypted'))
+
+        d = PasswordDialog(self, self.wallet, msg, PW_CHANGE)
+        ok, password, new_password = d.run()
+        if not ok:
+            return
+
+        try:
+            self.wallet.check_password(password)
+        except BaseException as e:
+            self.show_error(str(e))
+            return
+
+        try:
+            self.wallet.update_password(password, new_password)
+        except:
+            traceback.print_exc(file=sys.stdout)
+            self.show_error(_('Failed to update password'))
+            return
+
+        if new_password:
+            msg = _('Password was updated successfully')
+        else:
+            msg = _('This wallet is not encrypted')
+        self.show_message(msg, title=_("Success"))
+
+
         self.update_lock_icon()
 
     def toggle_search(self):
@@ -2741,17 +2793,18 @@ class ElectrumWindow(QMainWindow, PrintError):
             widget = settings_widgets.get(name)
             if not widget and p and p.requires_settings():
                 widget = settings_widgets[name] = p.settings_widget(self)
-                grid.addWidget(widget, i, 1)
             if widget:
+                grid.addWidget(widget, i, 1)
                 widget.setEnabled(bool(p and p.is_enabled()))
 
         def do_toggle(cb, name, i):
-            p = plugins.toggle_enabled(self.config, name)
+            p = plugins.toggle(name)
             cb.setChecked(bool(p))
             enable_settings_widget(p, name, i)
+            run_hook('init_qt', self.gui_object)
 
-        for i, descr in enumerate(plugins.descriptions):
-            name = descr['name']
+        for i, descr in enumerate(plugins.descriptions.values()):
+            name = descr['__name__']
             p = plugins.get(name)
             if descr.get('registers_wallet_type'):
                 continue
@@ -2823,20 +2876,18 @@ class ElectrumWindow(QMainWindow, PrintError):
 
         self.close_wallet()
         if self.network:
-            for name, method in self.callbacks.items():
-                self.network.remove_callback(name, method)
+            self.network.unregister_callback(self.on_network)
 
         self.config.set_active_chain_code(chaincode)
         # Old network instance will expire if nothing else uses it.
-        self.network = self.gui_object.network_controller.get_network(chaincode)
+        self.network = self.gui_object.daemon.network_controller.get_network(chaincode)
 
         if self.network:
-            for name, method in self.callbacks.items():
-                self.network.register_callback(name, method)
+            self.network.register_callback(self.on_network, self.interests)
 
             # set initial message
             self.console.showMessage(self.network.banner)
 
-        wallet = self.gui_object.load_wallet_file(self.wallet.storage.path)
+        wallet = self.gui_object.load_wallet(self.wallet.storage.path, chainparams.get_chain_instance(chaincode))
         self.load_wallet(wallet)
 

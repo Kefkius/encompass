@@ -34,7 +34,7 @@ class ChainNetworkTimer(object):
 
 class NetworkController(util.DaemonThread):
     """Handles Network instances for various chains."""
-    def __init__(self, config=None, plugins=None):
+    def __init__(self, config=None):
         super(NetworkController, self).__init__()
         self.config = get_config() if config is None else config
         self.networks = {}
@@ -46,7 +46,6 @@ class NetworkController(util.DaemonThread):
         self.chain_interval = int(self.config.get_above_chain('chain_network_timeout', 15))
         self.lock = Lock()
         self.timer_lock = Lock()
-        self.plugins = plugins
         self.start()
 
     def get_network_keys(self):
@@ -92,7 +91,7 @@ class NetworkController(util.DaemonThread):
                 return self.networks[chaincode]
             self.restart_timer(chaincode)
             # Start a Network instance if necessary
-            network = self.networks[chaincode] = Network(self.config, self.plugins, chaincode)
+            network = self.networks[chaincode] = Network(self.config, chaincode)
             network.start()
             return network
 
@@ -242,11 +241,11 @@ class Network(util.DaemonThread):
 
     - Member functions get_header(), get_interfaces(), get_local_height(),
           get_parameters(), get_server_height(), get_status_value(),
-          is_connected(), new_blockchain_height(), set_parameters(),
+          is_connected(), set_parameters(),
           stop()
     """
 
-    def __init__(self, config=None, plugins=None, chaincode='BTC'):
+    def __init__(self, config=None, chaincode='BTC'):
         if config is None:
             config = {}  # Do not use mutables as default values!
         util.DaemonThread.__init__(self)
@@ -274,11 +273,16 @@ class Network(util.DaemonThread):
         self.recent_servers = self.read_recent_servers()
 
         self.banner = ''
+        self.donation_address = ''
         self.fee = None
+        self.relay_fee = None
         self.heights = {}
         self.merkle_roots = {}
         self.utxo_roots = {}
+        # callbacks passed with subscriptions
         self.subscriptions = defaultdict(list)
+        self.sub_cache = {}
+        # callbacks set by the GUI
         self.callbacks = defaultdict(list)
 
         dir_path = os.path.join( self.config.path, 'certs')
@@ -302,9 +306,6 @@ class Network(util.DaemonThread):
         self.socket_queue = Queue.Queue()
         self.start_network(deserialize_server(self.default_server)[2],
                            deserialize_proxy(self.get_config_option('proxy')))
-        self.plugins = plugins
-        if self.plugins:
-            self.plugins.set_network(self)
 
     def diagnostic_name(self):
         return ' - '.join([super(Network, self).diagnostic_name(), self.active_chain.code])
@@ -317,19 +318,21 @@ class Network(util.DaemonThread):
         """Convenience method for setting a chain-specific option."""
         return self.config.set_key_for_chain(self.active_chain.code, key, value, save)
 
-    def register_callback(self, event, callback):
+    def register_callback(self, callback, events):
         with self.lock:
-            self.callbacks[event].append(callback)
+            for event in events:
+                self.callbacks[event].append(callback)
 
-    def trigger_callback(self, event, params=()):
+    def unregister_callback(self, callback):
+        with self.lock:
+            for callbacks in self.callbacks.values():
+                if callback in callbacks:
+                    callbacks.remove(callback)
+
+    def trigger_callback(self, event, *args):
         with self.lock:
             callbacks = self.callbacks[event][:]
-        [callback(*params) for callback in callbacks]
-
-    def remove_callback(self, event, callback):
-        with self.lock:
-            if callback in self.callbacks.get(event):
-                self.callbacks[event].remove(callback)
+        [callback(event, *args) for callback in callbacks]
 
     def read_recent_servers_file(self):
         """Read the recent_servers file.
@@ -373,7 +376,7 @@ class Network(util.DaemonThread):
         sh = self.get_server_height()
         if not sh:
             self.print_error('no height for main interface')
-            return False
+            return True
         lh = self.get_local_height()
         result = (lh - sh) > 1
         if result:
@@ -407,6 +410,7 @@ class Network(util.DaemonThread):
 
     def send_subscriptions(self):
         self.print_error('sending subscriptions to', self.interface.server, len(self.unanswered_requests), len(self.subscribed_addresses))
+        self.sub_cache.clear()
         # Resend unanswered requests
         requests = self.unanswered_requests.values()
         self.unanswered_requests = {}
@@ -416,8 +420,10 @@ class Network(util.DaemonThread):
         for addr in self.subscribed_addresses:
             self.queue_request('blockchain.address.subscribe', [addr])
         self.queue_request('server.banner', [])
+        self.queue_request('server.donation_address', [])
         self.queue_request('server.peers.subscribe', [])
         self.queue_request('blockchain.estimatefee', [2])
+        self.queue_request('blockchain.relayfee', [])
 
     def get_status_value(self, key):
         if key == 'status':
@@ -435,11 +441,10 @@ class Network(util.DaemonThread):
         return value
 
     def notify(self, key):
-        value = self.get_status_value(key)
         if key in ['status', 'updated']:
             self.trigger_callback(key)
         else:
-            self.trigger_callback(key, (value,))
+            self.trigger_callback(key, self.get_status_value(key))
 
     def get_parameters(self):
         host, port, protocol = deserialize_server(self.default_server)
@@ -448,6 +453,10 @@ class Network(util.DaemonThread):
     def get_interfaces(self):
         '''The interfaces that are in connected state'''
         return self.interfaces.keys()
+
+    def get_donation_address(self):
+        if self.is_connected():
+            return self.donation_address
 
     def get_servers(self):
         if self.irc_servers:
@@ -585,16 +594,13 @@ class Network(util.DaemonThread):
         self.recent_servers = self.recent_servers[0:20]
         self.save_recent_servers()
 
-    def new_blockchain_height(self, blockchain_height, i):
-        self.switch_lagging_interface(i.server)
-        self.notify('updated')
-
-    def process_response(self, interface, response, callback):
+    def process_response(self, interface, response, callbacks):
         if self.debug:
             self.print_error("<--", response)
         error = response.get('error')
         result = response.get('result')
         method = response.get('method')
+        params = response.get('params')
 
         # We handle some responses; return the rest to the client.
         if method == 'server.version':
@@ -610,43 +616,45 @@ class Network(util.DaemonThread):
             if error is None:
                 self.banner = result
                 self.notify('banner')
+        elif method == 'server.donation_address':
+            if error is None:
+                self.donation_address = result
         elif method == 'blockchain.estimatefee':
             if error is None:
                 self.fee = int(result * COIN)
                 self.print_error("recommended fee", self.fee)
                 self.notify('fee')
+        elif method == 'blockchain.relayfee':
+            if error is None:
+                self.relay_fee = int(result * COIN)
+                self.print_error("relayfee", self.relay_fee)
         elif method == 'blockchain.block.get_chunk':
             self.on_get_chunk(interface, response)
         elif method == 'blockchain.block.get_header':
             self.on_get_header(interface, response)
-        else:
-            if callback is None:
-                params = response['params']
-                with self.lock:
-                    for k,v in self.subscriptions.items():
-                        if (method, params) in v:
-                            callback = k
-                            break
-            if callback is None:
-                self.print_error("received unexpected notification",
-                                 method, params)
-            else:
-                callback(response)
+
+        for callback in callbacks:
+            callback(response)
+
+    def get_index(self, method, params):
+        """ hashable index for subscriptions and cache"""
+        return str(method) + (':' + str(params[0]) if params  else '')
 
     def process_responses(self, interface):
         responses = interface.get_responses()
-
         for request, response in responses:
-            callback = None
             if request:
                 method, params, message_id = request
+                k = self.get_index(method, params)
                 # client requests go through self.send() with a
                 # callback, are only sent to the current interface,
                 # and are placed in the unanswered_requests dictionary
                 client_req = self.unanswered_requests.pop(message_id, None)
                 if client_req:
                     assert interface == self.interface
-                    callback = client_req[2]
+                    callbacks = [client_req[2]]
+                else:
+                    callbacks = []
                 # Copy the request method and params to the response
                 response['method'] = method
                 response['params'] = params
@@ -661,15 +669,20 @@ class Network(util.DaemonThread):
                 # Rewrite response shape to match subscription request response
                 method = response.get('method')
                 params = response.get('params')
+                k = self.get_index(method, params)
                 if method == 'blockchain.headers.subscribe':
                     response['result'] = params[0]
                     response['params'] = []
                 elif method == 'blockchain.address.subscribe':
                     response['params'] = [params[0]]  # addr
                     response['result'] = params[1]
+                callbacks = self.subscriptions.get(k, [])
 
+            # update cache if it's a subscription
+            if method.endswith('.subscribe'):
+                self.sub_cache[k] = response
             # Response is now in canonical form
-            self.process_response(interface, response, callback)
+            self.process_response(interface, response, callbacks)
 
     def send(self, messages, callback):
         '''Messages is a list of (method, value) tuples'''
@@ -687,15 +700,23 @@ class Network(util.DaemonThread):
             self.pending_sends = []
 
         for messages, callback in sends:
-            subs = filter(lambda (m,v): m.endswith('.subscribe'), messages)
-            with self.lock:
-                for sub in subs:
-                    if sub not in self.subscriptions[callback]:
-                        self.subscriptions[callback].append(sub)
-
             for method, params in messages:
-                message_id = self.queue_request(method, params)
-                self.unanswered_requests[message_id] = method, params, callback
+                r = None
+                if method.endswith('.subscribe'):
+                    k = self.get_index(method, params)
+                    # add callback to list
+                    l = self.subscriptions.get(k, [])
+                    if callback not in l:
+                        l.append(callback)
+                    self.subscriptions[k] = l
+                    # check cached response for subscriptions
+                    r = self.sub_cache.get(k)
+                if r is not None:
+                    util.print_error("cache hit", k)
+                    callback(r)
+                else:
+                    message_id = self.queue_request(method, params)
+                    self.unanswered_requests[message_id] = method, params, callback
 
     def connection_down(self, server):
         '''A connection to server either went down, or was never made.
@@ -798,6 +819,7 @@ class Network(util.DaemonThread):
                 if next_height in [True, False]:
                     self.bc_requests.popleft()
                     if next_height:
+                        self.switch_lagging_interface(interface.server)
                         self.notify('updated')
                     else:
                         interface.print_error("header didn't connect, dismissing interface")
@@ -850,7 +872,12 @@ class Network(util.DaemonThread):
             return
         rin = [i for i in self.interfaces.values()]
         win = [i for i in self.interfaces.values() if i.unsent_requests]
-        rout, wout, xout = select.select(rin, win, [], 0.1)
+        try:
+            rout, wout, xout = select.select(rin, win, [], 0.1)
+        except socket.error as (code, msg):
+            if code == errno.EINTR:
+                return
+            raise
         assert not xout
         for interface in wout:
             interface.send_requests()
@@ -867,8 +894,6 @@ class Network(util.DaemonThread):
             self.process_pending_sends()
 
         self.stop_network()
-        if self.plugins:
-            self.plugins.set_network(None)
         self.print_error("stopped")
 
     def on_header(self, i, header):
@@ -896,7 +921,21 @@ class Network(util.DaemonThread):
     def synchronous_get(self, request, timeout=100000000):
         queue = Queue.Queue()
         self.send([request], queue.put)
-        r = queue.get(True, timeout)
+        try:
+            r = queue.get(True, timeout)
+        except Queue.Empty:
+            raise BaseException('Server did not answer')
         if r.get('error'):
             raise BaseException(r.get('error'))
         return r.get('result')
+
+    def broadcast(self, tx, timeout=10):
+        tx_hash = tx.hash()
+        try:
+            out = self.synchronous_get(('blockchain.transaction.broadcast', [str(tx)]), timeout)
+        except BaseException as e:
+            return False, "error: " + str(e)
+        if out != tx_hash:
+            return False, "error: " + out
+        return True, out
+

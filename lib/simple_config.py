@@ -206,6 +206,19 @@ class SimpleConfig(object):
 
         return new_path
 
+    def remove_from_recently_open(self, filename):
+        recent = self.get('recently_open', [])
+        if filename in recent:
+            recent.remove(filename)
+            self.set_key('recently_open', recent)
+
+    def set_session_timeout(self, seconds):
+        self.print_error("session timeout -> %d seconds" % seconds)
+        self.set_key('session_timeout', seconds)
+
+    def get_session_timeout(self):
+        return self.get('session_timeout', 300)
+
 
 
 def read_system_config(path=SYSTEM_CONFIG_PATH):

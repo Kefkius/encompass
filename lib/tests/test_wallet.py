@@ -9,7 +9,8 @@ from StringIO import StringIO
 from lib.wallet import WalletStorage, NewWallet
 from lib import chainparams
 
-chainparams.init_chains()
+def setUpModule():
+    chainparams.init_chains()
 
 
 class FakeSynchronizer(object):
@@ -58,16 +59,16 @@ class TestWalletStorage(WalletTestCase):
         storage = WalletStorage(self.wallet_path)
 
         some_dict = {"a":"b", "c":"d"}
+        expected_config = {"BTC": some_dict}
 
         for key, value in some_dict.items():
-            storage.put(key, value, False)
+            storage.put(key, value)
         storage.write()
 
         contents = ""
         with open(self.wallet_path, "r") as f:
             contents = f.read()
-        chain_dict = {"BTC": some_dict}
-        self.assertEqual(chain_dict, json.loads(contents))
+        self.assertEqual(expected_config, json.loads(contents))
 
 
 class TestNewWallet(WalletTestCase):
@@ -88,7 +89,7 @@ class TestNewWallet(WalletTestCase):
         # from eventual collisions.
         self.wallet.add_seed(self.seed_text, self.password)
         self.wallet.create_master_keys(self.password)
-        self.wallet.create_main_account(self.password)
+        self.wallet.create_main_account()
 
     def test_wallet_with_seed_is_not_watching_only(self):
         self.assertFalse(self.wallet.is_watching_only())

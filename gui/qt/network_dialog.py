@@ -19,6 +19,7 @@
 import sys, time, datetime, re, threading
 from encompass.i18n import _
 from encompass.util import print_error, print_msg
+from encompass.network import deserialize_server, serialize_server
 from encompass import chainparams
 import os.path, json, ast, traceback
 
@@ -27,19 +28,27 @@ from PyQt4.QtCore import *
 
 from util import *
 
-#protocol_names = ['TCP', 'HTTP', 'SSL', 'HTTPS']
-#protocol_letters = 'thsg'
 protocol_names = ['TCP', 'SSL']
 protocol_letters = 'ts'
 
-class NetworkDialog(QDialog):
+class NetworkDialog(WindowModalDialog):
     def __init__(self, network, config, parent):
-
-        QDialog.__init__(self,parent)
-        self.setModal(1)
-        self.setWindowTitle(_('Network'))
+        WindowModalDialog.__init__(self, parent, _('Network'))
         self.setMinimumSize(375, 20)
+        self.nlayout = NetworkChoiceLayout(network, config)
+        vbox = QVBoxLayout(self)
+        vbox.addLayout(self.nlayout.layout())
+        vbox.addLayout(Buttons(CancelButton(self), OkButton(self)))
 
+    def do_exec(self):
+        result = self.exec_()
+        if result:
+            self.nlayout.accept()
+        return result
+
+
+class NetworkChoiceLayout(object):
+    def __init__(self, network, config, wizard=False):
         self.network = network
         self.config = config
         self.protocol = None
@@ -49,7 +58,7 @@ class NetworkDialog(QDialog):
         if not proxy_config:
             proxy_config = { "mode":"none", "host":"localhost", "port":"9050"}
 
-        if parent:
+        if not wizard:
             n = len(network.get_interfaces())
             if n:
                 status = _("Blockchain") + ": " + "%d "%(network.get_local_height()) + _("blocks") +  ".\n" + _("Getting block headers from %d nodes.")%n
@@ -63,7 +72,6 @@ class NetworkDialog(QDialog):
             status = _("Please choose a server.") + "\n" + _("Select 'Cancel' if you are offline.")
 
         vbox = QVBoxLayout()
-        vbox.setSpacing(30)
         hbox = QHBoxLayout()
         l = QLabel()
         l.setPixmap(QPixmap(":icons/network.png"))
@@ -76,6 +84,7 @@ class NetworkDialog(QDialog):
             + _("This blockchain is used to verify the transactions sent by the address server.")
         hbox.addWidget(HelpButton(msg))
         vbox.addLayout(hbox)
+        vbox.addSpacing(15)
 
         # grid layout
         grid = QGridLayout()
@@ -87,38 +96,38 @@ class NetworkDialog(QDialog):
         self.server_host.setFixedWidth(200)
         self.server_port = QLineEdit()
         self.server_port.setFixedWidth(60)
+
         grid.addWidget(QLabel(_('Server') + ':'), 0, 0)
+        grid.addWidget(self.server_host, 0, 1, 1, 2)
+        grid.addWidget(self.server_port, 0, 3)
 
         # use SSL
         self.ssl_cb = QCheckBox(_('Use SSL'))
         self.ssl_cb.setChecked(auto_connect)
-        grid.addWidget(self.ssl_cb, 3, 1)
+        grid.addWidget(self.ssl_cb, 3, 1, 1, 3)
         self.ssl_cb.stateChanged.connect(self.change_protocol)
 
         # auto connect
-        self.autoconnect_cb = QCheckBox(_('Auto-connect'))
+        self.autoconnect_cb = QCheckBox(_('Select server automatically'))
         self.autoconnect_cb.setChecked(auto_connect)
-        grid.addWidget(self.autoconnect_cb, 0, 1)
+        grid.addWidget(self.autoconnect_cb, 1, 1, 1, 3)
         self.autoconnect_cb.setEnabled(self.config.is_modifiable('auto_connect'))
         msg = _("If auto-connect is enabled, Encompass will always use a server that is on the longest blockchain.") + " " \
             + _("If it is disabled, Encompass will warn you if your server is lagging.")
-        grid.addWidget(HelpButton(msg), 0, 4)
-        grid.addWidget(self.server_host, 0, 2, 1, 2)
-        grid.addWidget(self.server_port, 0, 3)
+        self.autoconnect_cb.setToolTip(msg)
 
         label = _('Active Servers') if network.is_connected() else _('Default Servers')
-        self.servers_list_widget = QTreeWidget(parent)
+        self.servers_list_widget = QTreeWidget()
         self.servers_list_widget.setHeaderLabels( [ label, _('Limit') ] )
         self.servers_list_widget.setMaximumHeight(150)
         self.servers_list_widget.setColumnWidth(0, 240)
 
         self.change_server(host, protocol)
         self.set_protocol(protocol)
-
         self.servers_list_widget.connect(self.servers_list_widget,
                                          SIGNAL('currentItemChanged(QTreeWidgetItem*,QTreeWidgetItem*)'),
                                          lambda x,y: self.server_changed(x))
-        grid.addWidget(self.servers_list_widget, 1, 1, 1, 3)
+        grid.addWidget(self.servers_list_widget, 2, 1, 1, 3)
 
         def enable_set_server():
             if config.is_modifiable('server'):
@@ -162,11 +171,10 @@ class NetworkDialog(QDialog):
         grid.addWidget(self.proxy_mode, 4, 1)
         grid.addWidget(self.proxy_host, 4, 2)
         grid.addWidget(self.proxy_port, 4, 3)
+        self.layout_ = vbox
 
-        # buttons
-        vbox.addLayout(Buttons(CancelButton(self), OkButton(self)))
-        self.setLayout(vbox)
-
+    def layout(self):
+        return self.layout_
 
     def init_servers_list(self):
         self.servers_list_widget.clear()
@@ -218,15 +226,15 @@ class NetworkDialog(QDialog):
         self.server_port.setText( port )
         self.ssl_cb.setChecked(protocol=='s')
 
-
-    def do_exec(self):
-
-        if not self.exec_():
-            return
-
-        host = str( self.server_host.text() )
-        port = str( self.server_port.text() )
+    def accept(self):
+        host = str(self.server_host.text())
+        port = str(self.server_port.text())
         protocol = 's' if self.ssl_cb.isChecked() else 't'
+        # sanitize
+        try:
+            deserialize_server(serialize_server(host, port, protocol))
+        except:
+            return
 
         if self.proxy_mode.currentText() != 'NONE':
             proxy = { 'mode':str(self.proxy_mode.currentText()).lower(),
@@ -238,4 +246,3 @@ class NetworkDialog(QDialog):
         auto_connect = self.autoconnect_cb.isChecked()
 
         self.network.set_parameters(host, port, protocol, proxy, auto_connect)
-        return True
