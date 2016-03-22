@@ -45,10 +45,10 @@ class HistoryWidget(MyTreeWidget):
         if conf > 0:
             time_str = format_time(timestamp)
         if conf == -1:
-            time_str = 'unverified'
+            time_str = _('Not Verified')
             icon = QIcon(":icons/unconfirmed.png")
         elif conf == 0:
-            time_str = 'pending'
+            time_str = _('Unconfirmed')
             icon = QIcon(":icons/unconfirmed.png")
         elif conf < 6:
             icon = QIcon(":icons/clock%d.png"%conf)
@@ -61,8 +61,7 @@ class HistoryWidget(MyTreeWidget):
 
     def on_update(self):
         self.wallet = self.parent.wallet
-        domain = self.get_domain()
-        h = self.wallet.get_history(domain)
+        h = self.wallet.get_history(self.get_domain())
 
         item = self.currentItem()
         current_tx = item.data(0, Qt.UserRole).toString() if item else None
@@ -75,9 +74,9 @@ class HistoryWidget(MyTreeWidget):
             icon, time_str = self.get_icon(conf, timestamp)
             v_str = self.parent.format_amount(value, True, whitespaces=True)
             balance_str = self.parent.format_amount(balance, whitespaces=True)
-            label, is_default_label = self.wallet.get_label(tx_hash)
+            label = self.wallet.get_label(tx_hash)
             entry = ['', tx_hash, time_str, label, v_str, balance_str]
-            run_hook('history_tab_update', tx, entry)
+            run_hook('history_tab_update', tx, entry, self.wallet.storage.active_chain.code)
             item = QTreeWidgetItem(entry)
             item.setIcon(0, icon)
             for i in range(len(entry)):
@@ -89,8 +88,6 @@ class HistoryWidget(MyTreeWidget):
                 item.setForeground(4, QBrush(QColor("#BC1E1E")))
             if tx_hash:
                 item.setData(0, Qt.UserRole, tx_hash)
-            if is_default_label:
-                item.setForeground(3, QBrush(QColor('grey')))
             self.insertTopLevelItem(0, item)
             if current_tx == tx_hash:
                 self.setCurrentItem(item)

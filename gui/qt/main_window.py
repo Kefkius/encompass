@@ -33,7 +33,7 @@ import PyQt4.QtCore as QtCore
 
 import icons_rc
 
-from encompass.bitcoin import COIN, is_valid
+from encompass.bitcoin import COIN, is_valid, TYPE_ADDRESS
 from encompass.plugins import run_hook
 from encompass.i18n import _
 from encompass.util_coin import block_explorer, block_explorer_info, block_explorer_URL
@@ -125,7 +125,7 @@ expiration_values = [
 
 
 
-class ElectrumWindow(QMainWindow, PrintError):
+class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
     labelsChanged = pyqtSignal()
 
     def __init__(self, wallet, gui_object):
@@ -206,11 +206,26 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.fetch_alias()
         self.require_fee_update = False
         self.tx_notifications = []
+        self.tl_windows = []
         self.load_wallet(wallet)
         self.connect_slots(gui_object.timer)
 
         self.change_currency_window = ChangeCurrencyDialog(self)
         self.change_currency_window.view.activated.connect(self.on_currency_selected)
+
+    def push_top_level_window(self, window):
+        '''Used for e.g. tx dialog box to ensure new dialogs are appropriately
+        parented.  This used to be done by explicitly providing the parent
+        window, but that isn't something hardware wallet prompts know.'''
+        self.tl_windows.append(window)
+
+    def pop_top_level_window(self, window):
+        self.tl_windows.remove(window)
+
+    def top_level_window(self):
+        '''Do the right thing in the presence of tx dialog windows'''
+        override = self.tl_windows[-1] if self.tl_windows else None
+        return self.top_level_window_recurse(override)
 
     def diagnostic_name(self):
         return "%s/%s" % (PrintError.diagnostic_name(self),
@@ -228,6 +243,11 @@ class ElectrumWindow(QMainWindow, PrintError):
     def bring_to_top(self):
         self.show()
         self.raise_()
+
+    def on_error(self, exc_info):
+        if not isinstance(exc_info[1], UserCancelled):
+            traceback.print_exception(*exc_info)
+            self.show_error(str(exc_info[1]))
 
     def on_network(self, event, *args):
         if event == 'updated':
@@ -1129,7 +1149,7 @@ class ElectrumWindow(QMainWindow, PrintError):
             fee = self.fee_e.get_amount() if freeze_fee else None
             if not outputs:
                 addr = self.get_payto_or_dummy()
-                outputs = [('address', addr, amount)]
+                outputs = [(TYPE_ADDRESS, addr, amount)]
             try:
                 tx = self.wallet.make_unsigned_transaction(self.get_coins(), outputs, self.config, fee)
                 self.not_enough_funds = False
@@ -1307,37 +1327,31 @@ class ElectrumWindow(QMainWindow, PrintError):
         self.sign_tx_with_password(tx, sign_done, password)
 
     @protected
-    def sign_tx(self, tx, callback, password, parent=None):
-        self.sign_tx_with_password(tx, callback, password, parent)
+    def sign_tx(self, tx, callback, password):
+        self.sign_tx_with_password(tx, callback, password)
 
-    def sign_tx_with_password(self, tx, callback, password, parent=None):
+    def sign_tx_with_password(self, tx, callback, password):
         '''Sign the transaction in a separate thread.  When done, calls
         the callback with a success code of True or False.
         '''
-        if parent == None:
-            parent = self
-        self.send_button.setDisabled(True)
+        if self.wallet.use_encryption and not password:
+            callback(False) # User cancelled password input
+            return
 
         # call hook to see if plugin needs gui interaction
-        run_hook('sign_tx', parent, tx)
+        run_hook('sign_tx', self, tx)
 
-        # sign the tx
-        success = [False]  # Array to work around python scoping
-        def sign_thread():
-            if not self.wallet.is_watching_only():
-                self.wallet.sign_transaction(tx, password)
-        def on_sign_successful(ret):
-            success[0] = True
-        def on_dialog_close():
-            self.send_button.setDisabled(False)
-            callback(success[0])
+        def on_signed(result):
+            callback(True)
+        def on_failed(exc_info):
+            self.on_error(exc_info)
+            callback(False)
 
-        # keep a reference to WaitingDialog or the gui might crash
-        self.waiting_dialog = WaitingDialog(parent, 'Signing transaction...', sign_thread, on_sign_successful, on_dialog_close)
-        self.waiting_dialog.start()
+        task = partial(self.wallet.sign_transaction, tx, password)
+        WaitingDialog(self, _('Signing transaction...'), task,
+                      on_signed, on_failed)
 
-
-    def broadcast_transaction(self, tx, tx_desc, parent=None):
+    def broadcast_transaction(self, tx, tx_desc):
 
         def broadcast_thread():
             # non-GUI thread
@@ -1355,6 +1369,9 @@ class ElectrumWindow(QMainWindow, PrintError):
                 if ack_status:
                     msg = ack_msg
             return status, msg
+
+        # Capture current TL window; override might be removed on return
+        parent = self.top_level_window()
 
         def broadcast_done(result):
             # GUI thread

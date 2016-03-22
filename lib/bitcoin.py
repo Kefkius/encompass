@@ -34,6 +34,11 @@ import chainparams
 
 ################################## transactions
 
+# supported types of transction outputs
+TYPE_ADDRESS = 0
+TYPE_PUBKEY  = 1
+TYPE_SCRIPT  = 2
+
 
 # AES encryption
 EncodeAES = lambda secret, s: base64.b64encode(aes.encryptData(secret,s))
