@@ -14,7 +14,7 @@ class Clam(CryptoCur):
     PoW = False
     chain_index = 23
     coin_name = 'Clam'
-    code = 'CLAMS'
+    code = 'CLAM'
     p2pkh_version = 137
     p2sh_version = 13
     wif_version = 133
@@ -33,7 +33,7 @@ class Clam(CryptoCur):
     ]
 
     base_units = {
-        'CLAMS': 8
+        'CLAM': 8
     }
 
     chunk_size = 2016

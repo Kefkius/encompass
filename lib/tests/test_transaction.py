@@ -121,7 +121,7 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(tx.serialize(), rawtx)
 
     def test_clams_deserialize_and_serialize(self):
-        chainparams.set_active_chain('CLAMS')
+        chainparams.set_active_chain('CLAM')
         rawtx = '02000000704d4a5501faaac09e923eb154c4a1692a69f40c6c7570ee508c5cef1d85325a5caeabd8f74a0100008a47304402205b628da48fe51c0d33fdb496b942690b1c0a6f8b295c431fe80c296b4e19af8702203e33521e4b3cb36e0f82f75930c8eeb5cd28d5189ac10a9b119e967f8cee0d53014104be46fb68e65df4b60ccf5503eed8ccbd0939543205f0ecaaf2343fd2301e4ef7bce423461bee2912f438466a95d125bd43d4b55bf809bd3efb9614bac9fe7b25ffffffff0200000000000000000040e1a65500000000434104be46fb68e65df4b60ccf5503eed8ccbd0939543205f0ecaaf2343fd2301e4ef7bce423461bee2912f438466a95d125bd43d4b55bf809bd3efb9614bac9fe7b25ac000000001568747470733a2f2f4a7573742d446963652e636f6d'
         tx = transaction.Transaction(rawtx)
         d = tx.deserialize()
