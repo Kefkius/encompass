@@ -313,8 +313,18 @@ class WizardBase(PrintError):
             wallet.synchronize()
 
     def add_chain(self, wallet):
+        '''The add_chain action generates master keys for a chain.'''
         password = None
         if wallet.use_encryption:
             msg = _("Please enter your password to begin using this coin")
             password = self.request_password(msg)
         wallet.create_master_keys(password)
+
+    def create_chain_account(self, wallet):
+        '''The create_chain_account action creates the first account for
+        a new chain.'''
+        password = None
+        if wallet.use_encryption:
+            msg = _("Please enter your password to begin using this coin")
+            password = self.request_password(msg)
+        wallet.create_hd_account(password)

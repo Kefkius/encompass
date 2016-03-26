@@ -1708,11 +1708,9 @@ class BIP32_Simple_Wallet(BIP32_Wallet):
 class BIP32_RD_Wallet(BIP32_Wallet):
     # Abstract base class for a BIP32 wallet with a self.root_derivation
 
-    @classmethod
     def account_derivation(self, account_id):
         return self.root_derivation + account_id
 
-    @classmethod
     def address_derivation(self, account_id, change, address_index):
         account_derivation = self.account_derivation(account_id)
         return "%s/%d/%d" % (account_derivation, change, address_index)
@@ -1812,7 +1810,10 @@ class BIP44_Wallet(BIP32_HD_Wallet):
     root_derivation = "m/44'/0'/"
     wallet_type = 'bip44'
 
-    @classmethod
+    def __init__(self, storage):
+        self.root_derivation = "m/44'/%d'" % storage.param('chain_index')
+        super(BIP44_Wallet, self).__init__(storage)
+
     def account_derivation(self, account_id):
         return self.root_derivation + account_id + "'"
 
@@ -1852,19 +1853,12 @@ class BIP44_Wallet(BIP32_HD_Wallet):
             return xpub, None
 
 
-class NewWallet(BIP32_RD_Wallet, Mnemonic):
+class NewWallet(BIP44_Wallet, Mnemonic):
     # Standard wallet
-    root_derivation = "m/"
     wallet_type = 'standard'
 
     def __init__(self, storage):
-        self.root_derivation = "m/44'/%d'" % storage.param('chain_index')
         super(NewWallet, self).__init__(storage)
-
-    def create_main_account(self):
-        xpub = self.master_public_keys.get("x/")
-        account = BIP32_Account({'xpub':xpub, 'chain': self.storage.param('code')})
-        self.add_account('0', account)
 
     def get_action(self):
         if not self.seed:
@@ -1872,7 +1866,7 @@ class NewWallet(BIP32_RD_Wallet, Mnemonic):
         if not self.get_master_public_key():
             return 'add_chain'
         if not self.accounts:
-            return 'create_main_account'
+            return 'create_chain_account'
 
 # Multisig wallets use a different derivation path
 # Instead of m/44'/coin'/... we use m/1491'/0'/coin/...
