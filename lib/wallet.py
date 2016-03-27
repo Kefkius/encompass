@@ -1113,6 +1113,35 @@ class Abstract_Wallet(PrintError):
             imported_account.update_password(old_password, new_password)
             self.save_accounts()
 
+        # Loop through chains an re-encrypt private keys.
+        chaincodes = chainparams.known_chain_codes
+        for code in chaincodes:
+            # Skip the active chain.
+            if code == self.storage.param('code'): continue
+
+            # Re-encrypt master private keys.
+            new_master_keys = {}
+            master_keys = self.storage.get_for_chain(code, 'master_private_keys', None)
+            if master_keys is None: continue
+            for k, v in master_keys.items():
+                old = pw_decode(v, old_password)
+                new = pw_encode(old, new_password)
+                new_master_keys[k] = new
+            self.storage.put_for_chain(code, 'master_private_keys', new_master_keys)
+
+            # Re-encrypt imported accounts.
+            new_accounts = {}
+            accounts = self.storage.get_for_chain(code, 'accounts', {})
+            for k, v in accounts.items():
+                if not v.get('imported'):
+                    new_accounts[k] = v
+                    continue
+                v['chain'] = code
+                account = ImportedAccount(v)
+                account.update_password(old_password, new_password)
+                new_accounts[k] = account.dump()
+            self.storage.put_for_chain(code, 'accounts', new_accounts)
+
         if hasattr(self, 'master_private_keys'):
             for k, v in self.master_private_keys.items():
                 b = pw_decode(v, old_password)
