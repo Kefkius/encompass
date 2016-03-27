@@ -1706,10 +1706,16 @@ class BIP32_Simple_Wallet(BIP32_Wallet):
         self.add_account('0', account)
 
 class BIP32_RD_Wallet(BIP32_Wallet):
-    # Abstract base class for a BIP32 wallet with a self.root_derivation
+    # Abstract base class for a BIP32 wallet with a self.root_derivation()
+
+    def root_derivation(self):
+        return "m/44'"
+
+    def chain_derivation(self):
+        return "%s/%d'" % (self.root_derivation(), self.storage.param('chain_index'))
 
     def account_derivation(self, account_id):
-        return self.root_derivation + account_id
+        return "%s/%s" % (self.chain_derivation(), account_id)
 
     def address_derivation(self, account_id, change, address_index):
         account_derivation = self.account_derivation(account_id)
@@ -1722,14 +1728,14 @@ class BIP32_RD_Wallet(BIP32_Wallet):
     def add_xprv_from_seed(self, seed, name, password, passphrase=''):
         # we don't store the seed, only the master xpriv
         xprv, xpub = bip32_root(self.mnemonic_to_seed(seed, passphrase))
-        xprv, xpub = bip32_private_derivation(xprv, "m/", self.root_derivation)
+        xprv, xpub = bip32_private_derivation(xprv, "m/", self.chain_derivation())
         self.add_master_public_key(name, xpub)
         self.add_master_private_key(name, xprv, password)
 
     def add_xpub_from_seed(self, seed, name):
         # store only master xpub
         xprv, xpub = bip32_root(self.mnemonic_to_seed(seed,''))
-        xprv, xpub = bip32_private_derivation(xprv, "m/", self.root_derivation)
+        xprv, xpub = bip32_private_derivation(xprv, "m/", self.chain_derivation())
         self.add_master_public_key(name, xpub)
 
     def create_master_keys(self, password):
@@ -1787,7 +1793,7 @@ class BIP32_HD_Wallet(BIP32_RD_Wallet):
     def create_next_account(self, password, label=None):
         account_id = '%d' % self.next_account_number()
         derivation = self.account_derivation(account_id)
-        root_name = self.root_derivation.split('/')[0]  # NOT self.root_name!
+        root_name = self.chain_derivation().split('/')[0]  # NOT self.root_name!
         xpub, xprv = self.derive_xkeys(root_name, derivation, password)
         wallet_key = self.root_name + account_id + "'"
         self.add_master_public_key(wallet_key, xpub)
@@ -1807,15 +1813,13 @@ class BIP32_HD_Wallet(BIP32_RD_Wallet):
 
 
 class BIP44_Wallet(BIP32_HD_Wallet):
-    root_derivation = "m/44'/0'/"
     wallet_type = 'bip44'
 
     def __init__(self, storage):
-        self.root_derivation = "m/44'/%d'" % storage.param('chain_index')
         super(BIP44_Wallet, self).__init__(storage)
 
     def account_derivation(self, account_id):
-        return self.root_derivation + account_id + "'"
+        return "%s/%s'" % (self.chain_derivation(), account_id)
 
     def can_sign_xpubkey(self, x_pubkey):
         xpub, sequence = BIP32_Account.parse_xpubkey(x_pubkey)
@@ -1841,7 +1845,7 @@ class BIP44_Wallet(BIP32_HD_Wallet):
 
     def derive_xkeys(self, root, derivation, password):
         root = self.root_name
-        derivation = derivation.replace(self.root_derivation, root)
+        derivation = derivation.replace(self.chain_derivation(), root)
         x = self.master_private_keys.get(root)
         if x:
             root_xprv = pw_decode(x, password)
@@ -1882,13 +1886,14 @@ class NewWallet(BIP44_Wallet, Mnemonic):
 class Multisig_Wallet(NewWallet):
     # generic m of n
     root_name = "x1/"
-    root_derivation = "m/"
 
     def __init__(self, storage):
         NewWallet.__init__(self, storage)
-        self.root_derivation = "m/1491'/0'/%d" % storage.param('chain_index')
         self.wallet_type = storage.get_above_chain('wallet_type')
         self.m, self.n = Wallet.multisig_type(self.wallet_type)
+
+    def root_derivation(self):
+        return "m/1491'/0'"
 
     def load_accounts(self):
         self.accounts = {}

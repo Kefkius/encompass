@@ -90,6 +90,13 @@ class TestBIP44Wallet(WalletTestCase):
         self.wallet.create_master_keys(self.password)
         self.wallet.create_hd_account(self.password)
 
+    def test_derivation_paths(self):
+        self._make_wallet()
+        self.assertEqual("m/44'", self.wallet.root_derivation())
+        self.assertEqual("m/44'/0'", self.wallet.chain_derivation())
+        self.assertEqual("m/44'/0'/0'/0/0", self.wallet.address_derivation(0, 0, 0))
+        self.assertEqual("m/44'/0'/0'/0/1", self.wallet.address_derivation(0, 0, 1))
+
     def test_account_derivation(self):
         self._make_wallet()
         key = self.wallet.master_public_keys[self.wallet.root_name]
