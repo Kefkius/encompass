@@ -1920,9 +1920,58 @@ class Multisig_Wallet(NewWallet):
         NewWallet.__init__(self, storage)
         self.wallet_type = storage.get_above_chain('wallet_type')
         self.m, self.n = Wallet.multisig_type(self.wallet_type)
+        self.root_private_key = storage.get_above_chain('root_private_key')
+        self.root_public_key = storage.get_above_chain('root_public_key')
+        self.cosigner_public_keys = storage.get_above_chain('cosigner_public_keys', {})
 
     def root_derivation(self):
         return "m/1491'/0'"
+
+    def can_create_accounts(self):
+        return False
+
+    def accounts_to_show(self):
+        return self.accounts.keys()
+
+    def create_root_private_key(self, password):
+        """Create the root private key that will be used to derive chain-specific keys."""
+        seed = self.get_seed(password)
+        xprv, xpub = bip32_root(self.mnemonic_to_seed(seed, ''))
+        xprv, xpub = bip32_private_derivation(xprv, "m/", self.root_derivation())
+        self.root_private_key = pw_encode(xprv, password)
+        self.root_public_key = xpub
+        self.storage.put_above_chain('root_private_key', self.root_private_key)
+        self.storage.put_above_chain('root_public_key', self.root_public_key)
+
+    def create_keys_for_chain(self, password):
+        """Create the private and public keys for this chain."""
+        root_xprv = pw_decode(self.root_private_key, password)
+        xprv, xpub = bip32_private_derivation(root_xprv, '', '/%d' % self.storage.param('chain_index'))
+        self.add_master_private_key(self.root_name, xprv, password)
+        self.add_master_public_key(self.root_name, xpub)
+
+    def add_cosigner_public_key(self, name, xpub):
+        """Add a root public key for a cosigner."""
+        if xpub in self.cosigner_public_keys.values():
+            raise BaseException('Duplicate master public key')
+        self.cosigner_public_keys[name] = xpub
+        self.storage.put_above_chain('cosigner_public_keys', self.cosigner_public_keys)
+
+    def derive_cosigner_keys(self):
+        """Derive the chain-specific keys for each cosigner."""
+        for k, v in self.cosigner_public_keys.items():
+            xpub = bip32_public_derivation(v, '', '/%d' % self.storage.param('chain_index'))
+            self.add_master_public_key(k, xpub)
+
+    def update_password(self, old_password, new_password):
+        super(Multisig_Wallet, self).update_password(old_password, new_password)
+        if new_password == '':
+            new_password = None
+
+        old = pw_decode(self.root_private_key, old_password)
+        new = pw_encode(self.root_private_key, new_password)
+        self.root_private_key = new
+        self.storage.put_above_chain('root_private_key', self.root_private_key)
 
     def load_accounts(self):
         self.accounts = {}
@@ -1944,9 +1993,16 @@ class Multisig_Wallet(NewWallet):
         return self.master_public_keys
 
     def get_action(self):
-        for i in range(self.n):
-            if self.master_public_keys.get("x%d/"%(i+1)) is None:
-                return 'create_seed' if i == 0 else 'add_cosigners'
+        if not self.root_private_key:
+            return 'create_multisig_seed'
+        if not self.master_public_keys.get(self.root_name):
+            return 'create_chain_keys'
+        for i in range(2, self.n + 1):
+            if self.cosigner_public_keys.get("x%d/"%i) is None:
+                return 'add_cosigners'
+        for i in range(2, self.n + 1):
+            if self.master_public_keys.get("x%d/"%i) is None:
+                return 'derive_cosigner_keys'
         if not self.accounts:
             return 'create_main_account'
 

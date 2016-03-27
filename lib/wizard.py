@@ -279,6 +279,15 @@ class WizardBase(PrintError):
         wallet.add_seed(seed, password)
         wallet.create_master_keys(password)
 
+    def create_multisig_seed(self, wallet):
+        '''The create_multisig_seed action creates a seed and generates
+        master keys for a multisig wallet.'''
+        seed = wallet.make_seed(self.language_for_seed)
+        self.show_and_verify_seed(seed)
+        password = self.request_password()
+        wallet.add_seed(seed, password)
+        wallet.create_root_private_key(password)
+
     def create_main_account(self, wallet):
         # FIXME: BIP44 restore requires password
         wallet.create_main_account()
@@ -289,10 +298,10 @@ class WizardBase(PrintError):
     def add_cosigners(self, wallet):
         # FIXME: better handling of duplicate keys
         m, n = Wallet.multisig_type(wallet.wallet_type)
-        xpub1 = wallet.master_public_keys.get("x1/")
+        xpub1 = wallet.root_public_key
         xpubs = self.request_many(n - 1, xpub1)
         for i, xpub in enumerate(xpubs):
-            wallet.add_master_public_key("x%d/" % (i + 2), xpub)
+            wallet.add_cosigner_public_key("x%d/" % (i + 2), xpub)
 
     def update_wallet_format(self, wallet):
         # Backwards compatibility: convert old-format imported keys
@@ -328,3 +337,12 @@ class WizardBase(PrintError):
             msg = _("Please enter your password to begin using this coin")
             password = self.request_password(msg)
         wallet.create_hd_account(password)
+
+    def create_chain_keys(self, wallet):
+        '''The create_chain_keys action creates the master keys for a
+        multisig wallet's chain.'''
+        password = None
+        if wallet.use_encryption:
+            msg = _("Please enter your password to begin using this coin")
+            password = self.request_password(msg)
+        wallet.create_keys_for_chain(password)
