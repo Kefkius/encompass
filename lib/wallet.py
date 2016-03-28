@@ -246,6 +246,7 @@ class Abstract_Wallet(PrintError):
         # imported_keys is deprecated. The GUI should call convert_imported_keys
         self.imported_keys = self.storage.get('imported_keys',{})
 
+        self.load_root_xkeys()
         self.load_accounts()
         self.load_transactions()
         self.build_reverse_history()
@@ -281,6 +282,9 @@ class Abstract_Wallet(PrintError):
     def set_use_encryption(self, use_encryption):
         self.use_encryption = use_encryption
         self.storage.put_above_chain('use_encryption', use_encryption)
+
+    def load_root_xkeys(self):
+        pass
 
     @profiler
     def load_transactions(self):
@@ -1768,8 +1772,37 @@ class BIP32_RD_Wallet(BIP32_Wallet):
         self.add_master_public_key(name, xpub)
 
     def create_master_keys(self, password):
+        xprv, xpub = self.get_root_xkeys(password)
+        derivation = self.chain_derivation().replace(self.root_derivation(), self.root_name)
+        xprv, xpub = bip32_private_derivation(xprv, self.root_name, derivation)
+        self.add_master_public_key(self.root_name, xpub)
+        self.add_master_private_key(self.root_name, xprv, password)
+
+    def load_root_xkeys(self):
+        self.root_private_key = self.storage.get_above_chain('root_private_key')
+        self.root_public_key = self.storage.get_above_chain('root_public_key')
+
+    def create_root_xkeys(self, password):
         seed = self.get_seed(password)
-        self.add_xprv_from_seed(seed, self.root_name, password)
+        xprv, xpub = bip32_root(self.mnemonic_to_seed(seed, ''))
+        xprv, xpub = bip32_private_derivation(xprv, "m/", self.root_derivation())
+        self.root_private_key = pw_encode(xprv, password)
+        self.root_public_key = xpub
+        self.storage.put_above_chain('root_private_key', self.root_private_key)
+        self.storage.put_above_chain('root_public_key', self.root_public_key)
+
+    def get_root_xkeys(self, password):
+        return pw_decode(self.root_private_key, password), self.root_public_key
+
+    def update_password(self, old_password, new_password):
+        super(BIP32_RD_Wallet, self).update_password(old_password, new_password)
+        if new_password == '':
+            new_password = None
+
+        old = pw_decode(self.root_private_key, old_password)
+        new = pw_encode(self.root_private_key, new_password)
+        self.root_private_key = new
+        self.storage.put_above_chain('root_private_key', self.root_private_key)
 
 
 class BIP32_HD_Wallet(BIP32_RD_Wallet):
@@ -1895,7 +1928,7 @@ class NewWallet(BIP44_Wallet, Mnemonic):
 
     def get_action(self):
         if not self.seed:
-            return 'create_seed'
+            return 'create_hd_seed'
         if not self.get_master_public_key():
             return 'add_chain'
         if not self.accounts:
@@ -1920,35 +1953,22 @@ class Multisig_Wallet(NewWallet):
         NewWallet.__init__(self, storage)
         self.wallet_type = storage.get_above_chain('wallet_type')
         self.m, self.n = Wallet.multisig_type(self.wallet_type)
-        self.root_private_key = storage.get_above_chain('root_private_key')
-        self.root_public_key = storage.get_above_chain('root_public_key')
         self.cosigner_public_keys = storage.get_above_chain('cosigner_public_keys', {})
 
     def root_derivation(self):
         return "m/1491'/0'"
+
+    def chain_derivation(self):
+        return "%s/%d" % (self.root_derivation(), self.storage.param('chain_index'))
+
+    def account_derivation(self, account_id):
+        return "%s/%s" % (self.chain_derivation(), account_id)
 
     def can_create_accounts(self):
         return False
 
     def accounts_to_show(self):
         return self.accounts.keys()
-
-    def create_root_private_key(self, password):
-        """Create the root private key that will be used to derive chain-specific keys."""
-        seed = self.get_seed(password)
-        xprv, xpub = bip32_root(self.mnemonic_to_seed(seed, ''))
-        xprv, xpub = bip32_private_derivation(xprv, "m/", self.root_derivation())
-        self.root_private_key = pw_encode(xprv, password)
-        self.root_public_key = xpub
-        self.storage.put_above_chain('root_private_key', self.root_private_key)
-        self.storage.put_above_chain('root_public_key', self.root_public_key)
-
-    def create_keys_for_chain(self, password):
-        """Create the private and public keys for this chain."""
-        root_xprv = pw_decode(self.root_private_key, password)
-        xprv, xpub = bip32_private_derivation(root_xprv, '', '/%d' % self.storage.param('chain_index'))
-        self.add_master_private_key(self.root_name, xprv, password)
-        self.add_master_public_key(self.root_name, xpub)
 
     def add_cosigner_public_key(self, name, xpub):
         """Add a root public key for a cosigner."""
@@ -1962,16 +1982,6 @@ class Multisig_Wallet(NewWallet):
         for k, v in self.cosigner_public_keys.items():
             xpub = bip32_public_derivation(v, '', '/%d' % self.storage.param('chain_index'))
             self.add_master_public_key(k, xpub)
-
-    def update_password(self, old_password, new_password):
-        super(Multisig_Wallet, self).update_password(old_password, new_password)
-        if new_password == '':
-            new_password = None
-
-        old = pw_decode(self.root_private_key, old_password)
-        new = pw_encode(self.root_private_key, new_password)
-        self.root_private_key = new
-        self.storage.put_above_chain('root_private_key', self.root_private_key)
 
     def load_accounts(self):
         self.accounts = {}
@@ -1994,9 +2004,9 @@ class Multisig_Wallet(NewWallet):
 
     def get_action(self):
         if not self.root_private_key:
-            return 'create_multisig_seed'
+            return 'create_hd_seed'
         if not self.master_public_keys.get(self.root_name):
-            return 'create_chain_keys'
+            return 'add_chain'
         for i in range(2, self.n + 1):
             if self.cosigner_public_keys.get("x%d/"%i) is None:
                 return 'add_cosigners'

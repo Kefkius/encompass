@@ -63,9 +63,9 @@ class TestMultisigWallet(WalletTestCase):
         self.wallet = Multisig_Wallet(self.storage)
 
         self.wallet.add_seed(self.seed_text, self.password)
+        self.wallet.create_root_xkeys(self.password)
 
-        self.wallet.create_root_private_key(self.password)
-        self.wallet.create_keys_for_chain(self.password)
+        self.wallet.create_master_keys(self.password)
         self.wallet.add_cosigner_public_key('x2/', self.cosigner_wallet_pubkey)
         self.wallet.derive_cosigner_keys()
         self.wallet.create_main_account()
@@ -73,7 +73,7 @@ class TestMultisigWallet(WalletTestCase):
     def _switch_chain(self, chaincode):
         self.storage.active_chain = chainparams.get_chain_instance(chaincode)
         self.wallet = Multisig_Wallet(self.storage)
-        self.wallet.create_keys_for_chain(self.password)
+        self.wallet.create_master_keys(self.password)
         self.wallet.derive_cosigner_keys()
         self.wallet.create_main_account()
 
@@ -154,9 +154,10 @@ class TestMultisig3of4(WalletTestCase):
         self.wallet = Multisig_Wallet(self.storage)
 
         self.wallet.add_seed(self.seed_text, self.password)
+        self.wallet.create_root_xkeys(self.password)
 
-        self.wallet.create_root_private_key(self.password)
-        self.wallet.create_keys_for_chain(self.password)
+        self.wallet.create_master_keys(self.password)
+
         self.wallet.add_cosigner_public_key('x2/', self.cosigner1_wallet_pubkey)
         self.wallet.add_cosigner_public_key('x3/', self.cosigner2_wallet_pubkey)
         self.wallet.add_cosigner_public_key('x4/', self.cosigner3_wallet_pubkey)
@@ -166,7 +167,7 @@ class TestMultisig3of4(WalletTestCase):
     def _switch_chain(self, chaincode):
         self.storage.active_chain = chainparams.get_chain_instance(chaincode)
         self.wallet = Multisig_Wallet(self.storage)
-        self.wallet.create_keys_for_chain(self.password)
+        self.wallet.create_master_keys(self.password)
         self.wallet.derive_cosigner_keys()
         self.wallet.create_main_account()
 

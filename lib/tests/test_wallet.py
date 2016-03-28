@@ -76,29 +76,36 @@ class TestBIP44Wallet(WalletTestCase):
     seed_text = "travel nowhere air position hill peace suffer parent beautiful rise blood power home crumble teach"
     password = "secret"
 
+    def setUp(self):
+        super(TestBIP44Wallet, self).setUp()
+        self.storage = WalletStorage(self.wallet_path)
+        self.wallet = BIP44_Wallet(self.storage)
+        # This cannot be constructed by electrum at random, it should be safe
+        # from eventual collisions.
+        self.wallet.add_seed(self.seed_text, self.password)
+        self.wallet.create_root_xkeys(self.password)
+        self.wallet.create_master_keys(self.password)
+        self.wallet.create_hd_account(self.password)
+
     def _open_wallet(self, chaincode='BTC'):
         active_chain = chainparams.get_chain_instance(chaincode)
         self.storage = WalletStorage(self.wallet_path, active_chain)
         self.wallet = BIP44_Wallet(self.storage)
 
-    def _make_wallet(self, chaincode='BTC'):
+    def _set_chain(self, chaincode='BTC'):
+        self.storage.write()
         self._open_wallet(chaincode)
-        self.wallet.add_seed(self.seed_text, self.password)
-        self._setup_chain()
 
-    def _setup_chain(self):
         self.wallet.create_master_keys(self.password)
         self.wallet.create_hd_account(self.password)
 
     def test_derivation_paths(self):
-        self._make_wallet()
         self.assertEqual("m/44'", self.wallet.root_derivation())
         self.assertEqual("m/44'/0'", self.wallet.chain_derivation())
         self.assertEqual("m/44'/0'/0'/0/0", self.wallet.address_derivation(0, 0, 0))
         self.assertEqual("m/44'/0'/0'/0/1", self.wallet.address_derivation(0, 0, 1))
 
     def test_account_derivation(self):
-        self._make_wallet()
         key = self.wallet.master_public_keys[self.wallet.root_name]
         # m/44'/0'
         self.assertEqual('xpub6Ar6Cfm9Ww2RJbvXDD6Xk4a5eztRTg1do1SKEDYgmd21mtmYYgeYbAp7uCKYMgVfezCLTpM2rn25Ma5Vhm5pRktzM1cspx9MQwMJNs21Tjm', key)
@@ -115,8 +122,7 @@ class TestBIP44Wallet(WalletTestCase):
             self.assertEqual(xpub, self.wallet.accounts[acc].xpub)
 
         # Switch chains.
-        self._open_wallet('MAZA')
-        self._setup_chain()
+        self._set_chain('MAZA')
 
 
         key = self.wallet.master_public_keys[self.wallet.root_name]
@@ -140,7 +146,6 @@ class TestBIP44Wallet(WalletTestCase):
         self.assertEqual('xpub6Ar6Cfm9Ww2RJbvXDD6Xk4a5eztRTg1do1SKEDYgmd21mtmYYgeYbAp7uCKYMgVfezCLTpM2rn25Ma5Vhm5pRktzM1cspx9MQwMJNs21Tjm', privkeys['x/'])
 
     def test_address_derivation(self):
-        self._make_wallet()
 
         btc_keys = [
             ('0', ('1MSv1TDyqXnWj3symY2GPfA3znrkg6gSdE', '0220faa22f8c79d46eae54c7ab3047efc5da6201b8ca824339e99044339cb5c99f')),
@@ -150,8 +155,7 @@ class TestBIP44Wallet(WalletTestCase):
             self.assertEqual(expected, self.wallet.accounts[acc].first_address())
 
         # Switch chains.
-        self._open_wallet('MAZA')
-        self._setup_chain()
+        self._set_chain('MAZA')
 
         maza_keys = [
             ('0', ('MC6MWHWchmszHEeMEcqUDiPPYDBi9j8BgE', '03138a486f59642ad66eb221a0574e46857156aa130cb2a7b375c2a26046bb1bc5')),
@@ -177,6 +181,7 @@ class TestNewWallet(WalletTestCase):
         # This cannot be constructed by electrum at random, it should be safe
         # from eventual collisions.
         self.wallet.add_seed(self.seed_text, self.password)
+        self.wallet.create_root_xkeys(self.password)
         self.wallet.create_master_keys(self.password)
         self.wallet.create_hd_account(self.password)
 
