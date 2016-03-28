@@ -200,7 +200,8 @@ class InstallWizard(QDialog, MessageBoxMixin, WizardBase):
         """Show the user their seed.  Ask them to re-enter it.  Return
         True on success."""
         self.show_seed(seed)
-        self.app.clipboard().clear()
+        if not self.config.get_above_chain('expert_mode', False):
+            self.app.clipboard().clear()
         self.verify_seed(seed, is_valid)
 
     def pw_layout(self, msg, kind):
