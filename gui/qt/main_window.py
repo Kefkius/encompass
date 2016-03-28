@@ -54,7 +54,7 @@ from qrtextedit import ScanQRTextEdit, ShowQRTextEdit
 from transaction_dialog import show_transaction
 from currency_dialog import ChangeCurrencyDialog, FavoriteCurrenciesDialog
 from settings_dialog import SettingsDialog
-from password_dialog import PasswordDialog, PW_CHANGE
+from password_dialog import PasswordDialog, PW_CHANGE, PW_GET
 
 
 
@@ -1210,7 +1210,7 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
             parent = kwargs.get('parent', self)
             if self.wallet.use_encryption:
                 while True:
-                    password = self.password_dialog(parent=parent)
+                    password = self.password_dialog(msg=_('Please enter your password.'), parent=parent)
                     if not password:
                         return True, None
                     try:
@@ -2305,38 +2305,17 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, PrintError):
         d.exec_()
 
 
-    def question(self, msg):
-        return QMessageBox.question(self, _('Message'), msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
-
-    def show_message(self, msg):
-        QMessageBox.information(self, _('Message'), msg, _('OK'))
-
-    def show_warning(self, msg):
-        QMessageBox.warning(self, _('Warning'), msg, _('OK'))
-
     def password_dialog(self, msg=None, parent=None):
-        if parent == None:
-            parent = self
-        d = QDialog(parent)
-        d.setModal(1)
-        d.setWindowTitle(_("Enter Password"))
-        pw = QLineEdit()
-        pw.setEchoMode(2)
-        vbox = QVBoxLayout()
-        if not msg:
-            msg = _('Please enter your password')
-        vbox.addWidget(QLabel(msg))
-        grid = QGridLayout()
-        grid.setSpacing(8)
-        grid.addWidget(QLabel(_('Password')), 1, 0)
-        grid.addWidget(pw, 1, 1)
-        vbox.addLayout(grid)
-        vbox.addLayout(Buttons(CancelButton(d), OkButton(d)))
-        d.setLayout(vbox)
-        run_hook('password_dialog', pw, grid, 1)
-        if not d.exec_(): return
-        return unicode(pw.text())
-
+        d = PasswordDialog(parent or self, self.wallet, msg, PW_GET)
+        ok, _, password = d.run()
+        if not ok:
+            return
+        try:
+            self.wallet.check_password(password)
+        except BaseException as e:
+            self.show_error(str(e))
+            return
+        return password
 
     def tx_from_text(self, txt):
         "json or raw hexadecimal"

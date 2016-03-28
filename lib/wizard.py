@@ -25,7 +25,7 @@
 
 from encompass import WalletStorage
 from encompass.plugins import run_hook
-from util import PrintError
+from util import InvalidPassword, PrintError
 from wallet import Wallet
 from i18n import _
 
@@ -38,10 +38,12 @@ MSG_COSIGNER = _("Please enter the master public key of cosigner #%d:")
 MSG_SHOW_MPK = _("Here is your master public key:")
 MSG_ENTER_PASSWORD = _("Choose a password to encrypt your wallet keys.  "
                        "Enter nothing if you want to disable encryption.")
+MSG_GET_PASSWORD = _("Please enter your password.")
 MSG_RESTORE_PASSPHRASE = \
     _("Please enter the passphrase you used when creating your %s wallet.  "
       "Note this is NOT a password.  Enter nothing if you did not use "
       "one or are unsure.")
+MSG_NEW_CHAIN = _("Please enter your password to begin using this coin.")
 
 class WizardBase(PrintError):
     '''Base class for gui-specific install wizards.'''
@@ -108,6 +110,14 @@ class WizardBase(PrintError):
         """Request the user enter a new password and confirm it.  Return
         the password or None for no password."""
         raise NotImplementedError
+
+    def get_password(self, msg=None):
+        """Request the user enter their password."""
+        raise NotImplementedError
+
+    def on_invalid_password(self):
+        """Inform the user that the password they input is invalid."""
+        pass
 
     def request_seed(self, msg, is_valid=None):
         """Request the user enter a seed.  Returns the seed the user entered.
@@ -325,8 +335,12 @@ class WizardBase(PrintError):
         '''The add_chain action generates master keys for a chain.'''
         password = None
         if wallet.use_encryption:
-            msg = _("Please enter your password to begin using this coin")
-            password = self.request_password(msg)
+            password = self.get_password(MSG_NEW_CHAIN)
+            try:
+                wallet.check_password(password)
+            except InvalidPassword:
+                self.on_invalid_password()
+                return
         wallet.create_master_keys(password)
 
     def create_chain_account(self, wallet):
@@ -334,6 +348,10 @@ class WizardBase(PrintError):
         a new chain.'''
         password = None
         if wallet.use_encryption:
-            msg = _("Please enter your password to begin using this coin")
-            password = self.request_password(msg)
+            password = self.get_password(MSG_NEW_CHAIN)
+            try:
+                wallet.check_password(password)
+            except InvalidPassword:
+                self.on_invalid_password()
+                return
         wallet.create_hd_account(password)

@@ -47,12 +47,12 @@ def check_password_strength(password):
     return password_strength[min(3, int(score))]
 
 
-PW_NEW, PW_CHANGE, PW_PASSPHRASE = range(0, 3)
+PW_NEW, PW_CHANGE, PW_PASSPHRASE, PW_GET = range(0, 4)
 
 
 class PasswordLayout(object):
 
-    titles = [_("Enter Password"), _("Change Password"), _("Enter Passphrase")]
+    titles = [_("Enter Password"), _("Change Password"), _("Enter Passphrase"), _("Enter Password")]
 
     def __init__(self, wallet, msg, kind, OK_button):
         self.wallet = wallet
@@ -67,6 +67,8 @@ class PasswordLayout(object):
         self.OK_button = OK_button
 
         vbox = QVBoxLayout()
+        if msg is None:
+            msg = ''
         label = QLabel(msg + "\n")
         label.setWordWrap(True)
 
@@ -94,29 +96,30 @@ class PasswordLayout(object):
 
             m1 = _('New Password:') if kind == PW_NEW else _('Password:')
             msgs = [m1, _('Confirm Password:')]
-            if wallet and wallet.use_encryption:
+            if wallet and wallet.use_encryption and kind != PW_GET:
                 grid.addWidget(QLabel(_('Current Password:')), 0, 0)
                 grid.addWidget(self.pw, 0, 1)
-                lockfile = ":icons/lock.png"
-            else:
-                lockfile = ":icons/unlock.png"
+
+            lockfile = ":icons/lock.png" if wallet and wallet.use_encryption else ":icons/unlock.png"
             logo.setPixmap(QPixmap(lockfile).scaledToWidth(36))
 
         grid.addWidget(QLabel(msgs[0]), 1, 0)
         grid.addWidget(self.new_pw, 1, 1)
 
-        grid.addWidget(QLabel(msgs[1]), 2, 0)
-        grid.addWidget(self.conf_pw, 2, 1)
+        if kind != PW_GET:
+            grid.addWidget(QLabel(msgs[1]), 2, 0)
+            grid.addWidget(self.conf_pw, 2, 1)
+
         vbox.addLayout(grid)
 
         # Password Strength Label
-        if kind != PW_PASSPHRASE:
+        if kind not in [PW_GET, PW_PASSPHRASE]:
             self.pw_strength = QLabel()
             grid.addWidget(self.pw_strength, 3, 0, 1, 2)
             self.new_pw.textChanged.connect(self.pw_changed)
 
         def enable_OK():
-            OK_button.setEnabled(self.new_pw.text() == self.conf_pw.text())
+            OK_button.setEnabled(kind == PW_GET or self.new_pw.text() == self.conf_pw.text())
         self.new_pw.textChanged.connect(enable_OK)
         self.conf_pw.textChanged.connect(enable_OK)
 

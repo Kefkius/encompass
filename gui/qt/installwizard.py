@@ -10,7 +10,7 @@ from encompass.i18n import _
 from seed_dialog import SeedDisplayLayout, SeedWarningLayout, SeedInputLayout
 from network_dialog import NetworkChoiceLayout
 from util import *
-from password_dialog import PasswordLayout, PW_NEW, PW_PASSPHRASE
+from password_dialog import PasswordLayout, PW_NEW, PW_PASSPHRASE, PW_GET
 
 from encompass.wallet import Wallet
 from encompass.mnemonic import prepare_seed
@@ -221,6 +221,14 @@ class InstallWizard(QDialog, MessageBoxMixin, WizardBase):
         """Request the user enter a new password and confirm it.  Return
         the password or None for no password."""
         return self.pw_layout(msg or MSG_ENTER_PASSWORD, PW_NEW)
+
+    def get_password(self, msg=None):
+        """Request the user enter their password."""
+        return self.pw_layout(msg or MSG_GET_PASSWORD, PW_GET)
+
+    def on_invalid_password(self):
+        """Inform the user that the password they input is invalid."""
+        self.show_error('Incorrect password')
 
     def show_restore(self, wallet, network):
         # FIXME: these messages are shown after the install wizard is

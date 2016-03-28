@@ -1758,6 +1758,11 @@ class BIP32_RD_Wallet(BIP32_Wallet):
         acc_id, (change, address_index) = self.get_address_index(address)
         return self.address_derivation(acc_id, change, address_index)
 
+    def check_password(self, password):
+        xpriv, xpub = self.get_root_xkeys(password)
+        if deserialize_xkey(xpriv)[3] != deserialize_xkey(xpub)[3]:
+            raise InvalidPassword()
+
     def add_xprv_from_seed(self, seed, name, password, passphrase=''):
         # we don't store the seed, only the master xpriv
         xprv, xpub = bip32_root(self.mnemonic_to_seed(seed, passphrase))
