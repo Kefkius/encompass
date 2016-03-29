@@ -2242,6 +2242,7 @@ class Wallet(object):
             klass = NewWallet
         w = klass(storage)
         w.add_seed(seed, password)
+        w.create_root_xkeys(password)
         w.create_master_keys(password)
         return w
 
@@ -2289,16 +2290,19 @@ class Wallet(object):
             name = "x%d/" % (i+1)
             if Wallet.is_xprv(text):
                 xpub = bitcoin.xpub_from_xprv(text)
-                wallet.add_master_public_key(name, xpub)
-                wallet.add_master_private_key(name, text, password)
+                wallet.add_cosigner_public_key(name, xpub)
             elif Wallet.is_xpub(text):
-                wallet.add_master_public_key(name, text)
+                wallet.add_cosigner_public_key(name, text)
             elif Wallet.is_seed(text):
                 if name == 'x1/':
                     wallet.add_seed(text, password)
+                    wallet.create_root_xkeys(password)
                     wallet.create_master_keys(password)
+                # Create cosigner key from seed.
                 else:
-                    wallet.add_xprv_from_seed(text, name, password)
+                    xprv, _ = bip32_root(wallet.mnemonic_to_seed(text, ''))
+                    _, xpub = bip32_private_derivation(xprv, "m/", wallet.root_derivation())
+                    wallet.add_cosigner_public_key(name, xpub)
             else:
                 raise RunTimeError("Cannot handle text for multisig")
         wallet.set_use_encryption(password is not None)

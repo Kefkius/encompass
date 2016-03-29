@@ -14,12 +14,12 @@ from password_dialog import PasswordLayout, PW_NEW, PW_PASSPHRASE, PW_GET
 
 from encompass.wallet import Wallet
 from encompass.mnemonic import prepare_seed
-from encompass.util import UserCancelled
+from encompass.util import UserCancelled, InvalidPassword
 from encompass.wizard import (WizardBase,
                              MSG_ENTER_PASSWORD, MSG_RESTORE_PASSPHRASE,
                              MSG_COSIGNER, MSG_ENTER_SEED_OR_MPK,
                              MSG_SHOW_MPK, MSG_VERIFY_SEED,
-                             MSG_GENERATING_WAIT)
+                             MSG_GENERATING_WAIT, MSG_NEW_CHAIN)
 
 def clean_text(seed_e):
     text = unicode(seed_e.toPlainText()).strip()
@@ -68,6 +68,8 @@ class InstallWizard(QDialog, MessageBoxMixin, WizardBase):
 
     def __init__(self, config, app, plugins):
         QDialog.__init__(self, None)
+        # Cached password used to set up new chains.
+        self.cached_chain_password = None
         self.setWindowTitle('Encompass  -  ' + _('Install Wizard'))
         self.app = app
         self.config = config
@@ -400,3 +402,33 @@ class InstallWizard(QDialog, MessageBoxMixin, WizardBase):
         n = int(n_edit.value())
         wallet_type = '%dof%d'%(m,n)
         return wallet_type
+
+    def add_chain(self, wallet):
+        '''The add_chain action generates master keys for a chain.'''
+        password = None
+        if wallet.use_encryption:
+            password = self.get_password(MSG_NEW_CHAIN)
+            try:
+                wallet.check_password(password)
+            except InvalidPassword:
+                self.on_invalid_password()
+                return
+        self.cached_chain_password = password
+        wallet.create_master_keys(password)
+
+    def create_chain_account(self, wallet):
+        '''The create_chain_account action creates the first account for
+        a new chain.'''
+        password = self.cached_chain_password
+        if wallet.use_encryption:
+            if not password:
+                password = self.get_password(MSG_NEW_CHAIN)
+            try:
+                wallet.check_password(password)
+            except InvalidPassword:
+                self.cached_chain_password = None
+                self.on_invalid_password()
+                return
+        self.cached_chain_password = None
+        wallet.create_hd_account(password)
+
