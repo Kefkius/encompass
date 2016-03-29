@@ -1923,14 +1923,6 @@ class BIP44_Wallet(BIP32_HD_Wallet):
             xpub = bip32_public_derivation(root_xpub, root, derivation)
             return xpub, None
 
-
-class NewWallet(BIP44_Wallet, Mnemonic):
-    # Standard wallet
-    wallet_type = 'standard'
-
-    def __init__(self, storage):
-        super(NewWallet, self).__init__(storage)
-
     def get_action(self):
         if not self.seed:
             return 'create_hd_seed'
@@ -1938,6 +1930,14 @@ class NewWallet(BIP44_Wallet, Mnemonic):
             return 'add_chain'
         if not self.accounts:
             return 'create_chain_account'
+
+
+class NewWallet(BIP44_Wallet, Mnemonic):
+    # Standard wallet
+    wallet_type = 'standard'
+
+    def __init__(self, storage):
+        super(NewWallet, self).__init__(storage)
 
 # Multisig wallets use a different derivation path
 # Instead of m/44'/coin'/... we use m/1491'/0'/coin/...
