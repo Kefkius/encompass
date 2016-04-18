@@ -154,7 +154,7 @@ class Plugins(DaemonThread):
         Wallet.register_plugin_wallet(details[0], details[1],
                                       dynamic_constructor)
 
-    def wallet_plugin_loader(self, config, name):
+    def wallet_plugin_loader(self, name):
         if not name in self.plugins:
             self.load_plugin(name)
         return self.plugins[name]

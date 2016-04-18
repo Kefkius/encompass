@@ -30,6 +30,7 @@ class HistoryWidget(MyTreeWidget):
 
     def __init__(self, parent=None):
         MyTreeWidget.__init__(self, parent, self.create_menu, [], 3)
+        self.wallet = None
         self.refresh_headers()
         self.setColumnHidden(1, True)
         self.config = self.parent.config
@@ -37,7 +38,10 @@ class HistoryWidget(MyTreeWidget):
     def refresh_headers(self):
         headers = ['', '', _('Date'), _('Description') , _('Amount'),
                    _('Balance')]
-        run_hook('history_tab_headers', headers)
+        chaincode = None
+        if self.wallet:
+            chaincode = self.wallet.storage.active_chain.code
+        run_hook('history_tab_headers', headers, chaincode)
         self.update_headers(headers)
 
     def get_icon(self, conf, timestamp):
@@ -66,6 +70,7 @@ class HistoryWidget(MyTreeWidget):
         item = self.currentItem()
         current_tx = item.data(0, Qt.UserRole).toString() if item else None
         self.clear()
+        self.refresh_headers()
         run_hook('history_tab_update_begin')
         for tx in h:
             tx_hash, conf, value, timestamp, balance = tx
